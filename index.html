@@ -172,7 +172,7 @@ body.tech .price{display:none!important}
 
 /* scanner */
 .shot{position:relative;display:flex;justify-content:center;background:#000;border-radius:10px;overflow:hidden}
-.shot canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
+.shot canvas{max-height:56vh;width:auto;display:block;touch-action:none;cursor:crosshair;max-width:100%}
 .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:var(--brand);transition:width .2s}
 .cand{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;cursor:pointer;min-height:52px}
@@ -203,6 +203,8 @@ body.tech .price{display:none!important}
   .paper{box-shadow:none!important;padding:0!important}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+.cand b.nm,.cand .nm{font-family:var(--f-body);letter-spacing:0}
 
 </style>
 </head>
@@ -414,6 +416,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
+const APP_VERSION='1.1.0',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -601,9 +604,10 @@ const SCAN_HINT={vin:'Photograph the VIN on the windshield (lower driver side) o
  odo:'Photograph the odometer display with the ignition on. Fill the frame with the digits.',
  part:'Photograph the label on the part box that shows the part number. Barcodes are read too.'};
 
-function startScan(kind,cb){Object.assign(SC,{kind,cb,canvas:null,region:null,busy:false,cands:[],msg:'',pct:0,note:'',raw:''});drawScan()}
+function startScan(kind,cb){Object.assign(SC,{kind,cb,step:'pick',orig:null,canvas:null,region:null,busy:false,cands:[],msg:'',pct:0,note:'',raw:''});drawScan()}
 function closeScan(){const s=$('#scan');s.className='';s.innerHTML='';document.body.style.overflow=stack.length?'hidden':''}
 function drawScan(){
+  if(SC.kind==='vin'||SC.kind==='odo')return drawScanVin();
   const s=$('#scan');s.className='on';document.body.style.overflow='hidden';
   const has=!!SC.canvas;
   s.innerHTML=`<div class="shade" data-act="scanClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${SCAN_TITLE[SC.kind]}">
@@ -624,7 +628,7 @@ function drawScan(){
   const sh=$('#shot');if(sh&&SC.canvas){sh.appendChild(showCanvas());}
   for(const id of ['scanFile','scanFile2']){const f=$('#'+id);if(f)f.onchange=async e=>{const file=e.target.files[0];if(file)await loadScanFile(file)}}
 }
-function showCanvas(){
+function showCanvas(readonly){
   const c=document.createElement('canvas'),src=SC.canvas,k=Math.min(1,900/src.width);
   c.width=Math.round(src.width*k);c.height=Math.round(src.height*k);
   const g=c.getContext('2d');
@@ -633,6 +637,7 @@ function showCanvas(){
       const x=r.x*c.width,y=r.y*c.height,w=r.w*c.width,h=r.h*c.height;g.fillRect(x,y,w,h);g.strokeRect(x,y,w,h)}};
   draw();
   const pos=e=>{const b=c.getBoundingClientRect();return{x:Math.min(1,Math.max(0,(e.clientX-b.left)/b.width)),y:Math.min(1,Math.max(0,(e.clientY-b.top)/b.height))}};
+  if(readonly)return c;
   c.onpointerdown=e=>{SC.drag=pos(e);c.setPointerCapture(e.pointerId)};
   c.onpointermove=e=>{if(!SC.drag)return;const p=pos(e),a=SC.drag;
     SC.region={x:Math.min(a.x,p.x),y:Math.min(a.y,p.y),w:Math.abs(p.x-a.x),h:Math.abs(p.y-a.y)};draw()};
@@ -641,8 +646,10 @@ function showCanvas(){
 }
 async function loadScanFile(file){
   SC.msg='Opening photo...';SC.cands=[];SC.region=null;drawScan();
-  try{SC.canvas=await fileToCanvas(file,2400)}catch(e){SC.msg=e.message;drawScan();return}
-  SC.msg='';drawScan();await runScan();
+  try{SC.canvas=await fileToCanvas(file,2400)}catch(e){SC.msg=e.message;SC.step='pick';drawScan();return}
+  SC.orig=SC.canvas;SC.msg='';
+  if(SC.kind==='vin'||SC.kind==='odo'){SC.step='crop';drawScan();return}
+  SC.step='read';drawScan();await runScan();
 }
 function rotateCanvas(c,deg){
   const o=document.createElement('canvas'),q=((deg%360)+360)%360,sw=q===90||q===270;
@@ -651,7 +658,7 @@ function rotateCanvas(c,deg){
 }
 ACT.scanClose=()=>closeScan();
 ACT.scanClear=()=>{SC.region=null;drawScan()};
-ACT.scanRot=b=>{if(!SC.canvas)return;SC.canvas=rotateCanvas(SC.canvas,+b.dataset.d);SC.region=null;drawScan()};
+ACT.scanRot=b=>{if(!SC.canvas)return;SC.canvas=rotateCanvas(SC.canvas,+b.dataset.d);if(SC.step==='crop'||SC.kind==='part')SC.orig=SC.canvas;SC.region=null;drawScan()};
 ACT.scanRead=()=>runScan();
 ACT.scanPick=b=>{const c=SC.cands[+b.dataset.i];const cb=SC.cb;closeScan();if(cb)cb(c.value,c)};
 ACT.scanTyped=()=>{
@@ -742,7 +749,7 @@ async function readBarcodes(canvas){
 function setProg(p,msg){SC.pct=p;if(msg!=null)SC.msg=msg;const b=document.querySelector('#scan .bar i'),m=$('#scanMsg');if(b)b.style.width=p+'%';if(m&&msg!=null)m.textContent=msg}
 async function runScan(){
   if(!SC.canvas||SC.busy)return;
-  SC.busy=true;SC.cands=[];SC.msg='Reading...';SC.pct=3;drawScan();
+  SC.busy=true;SC.step='read';SC.cands=[];SC.msg='Reading...';SC.pct=3;drawScan();
   const kind=SC.kind;
   try{
     let cands=[];
@@ -762,10 +769,10 @@ async function runScan(){
     else if(kind==='odo')cands=await scanOdo(region);
     else cands=cands.concat(await scanPart(region));
     finishScan(cands);
-  }catch(e){SC.busy=false;SC.msg='Reading failed: '+(e&&e.message||e)+' The reader needs internet the first time. You can type it instead.';drawScan()}
+  }catch(e){SC.busy=false;SC.step='result';SC.msg='Reading failed: '+(e&&e.message||e)+' The reader needs internet the first time. You can type it instead.';drawScan()}
 }
 function finishScan(cands){
-  SC.busy=false;SC.pct=0;
+  SC.busy=false;SC.pct=0;SC.step='result';
   const seen=new Set();SC.cands=cands.filter(c=>!seen.has(c.value)&&seen.add(c.value)).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,6);
   SC.msg=SC.cands.length?'Tap the correct reading. If none are right, box the text and read again, or type it.':'Nothing readable found. Get closer, avoid glare, box just the text, or turn the photo.';
   drawScan();
@@ -825,6 +832,46 @@ async function scanPart(region){
   return [...out.values()].map(x=>({value:x.text,label:x.text,note:x.kind==='upc'?'Barcode number (UPC)':(x.score>=12?'Looks like a part number':''),score:x.score+(x.kind==='upc'?-2:0),kind:x.kind}));
 }
 
+/* ----- VIN scan screens: take photo, crop, read, confirm ----- */
+function cropRegion(src,r){
+  const x=Math.round(r.x*src.width),y=Math.round(r.y*src.height),w=Math.max(8,Math.round(r.w*src.width)),h=Math.max(8,Math.round(r.h*src.height));
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(src,x,y,w,h,0,0,w,h);return c;
+}
+function drawScanVin(){
+  const s=$('#scan');s.className='on';document.body.style.overflow='hidden';
+  const st=SC.step||'pick',top=SC.cands[0],vin=SC.kind==='vin';
+  const T=vin?{title:'Scan VIN',what:'the 17 characters of the VIN',pick:'Photograph the VIN on the windshield (lower driver side) or the door post sticker. You will crop the photo to just the VIN next.',
+     ph:'17 character VIN',inp:'type="text" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false"',lab:'VIN',acc:'Accept VIN',use:'Use this VIN',
+     fmt:"this.value=cleanVin(this.value);document.getElementById('vinLen').textContent=this.value.length+'/17'",len:v=>v.length+'/17',turn:' Use Turn if the VIN is sideways.'}
+   :{title:'Scan odometer',what:'the odometer digits',pick:'Photograph the odometer display with the ignition on. You will crop the photo to just the digits next.',
+     ph:'Miles',inp:'type="text" inputmode="numeric" autocomplete="off"',lab:'Mileage',acc:'Accept mileage',use:'Use this reading',
+     fmt:"this.value=this.value.replace(/\\D/g,'')",len:()=>'',turn:''};
+  const files=(lbl,pri)=>`<label class="btn ${pri?'pri':''}" style="text-align:center;cursor:pointer">${lbl}<input id="scanFile" type="file" accept="image/*" capture="environment" hidden></label><label class="btn" style="text-align:center;cursor:pointer">Choose from library<input id="scanFile2" type="file" accept="image/*" hidden></label>`;
+  let body='';
+  if(st==='pick')body=`<p class="sub">${T.pick}</p><div class="btnrow">${files('Take photo',1)}</div>
+    <div class="sec"><label class="field"><span>Or type it</span><input id="scanType" ${T.inp} placeholder="${T.ph}"></label><button class="btn" data-act="scanTyped">${T.use}</button></div>`;
+  if(st==='crop')body=`<p class="sub"><b>Crop to the ${vin?'VIN':'digits'}.</b> Drag a box around just ${T.what}, then tap Accept.${T.turn}</p>
+    <div class="shot" id="shot"></div>
+    <div class="btnrow"><button class="btn" data-act="scanRot" data-d="-90">Turn left</button><button class="btn" data-act="scanRot" data-d="90">Turn right</button><button class="btn" data-act="scanClear">Reset box</button></div>
+    <div class="btnrow">${files('Retake photo')}<button class="btn pri" data-act="scanAccept">Accept crop</button></div>`;
+  if(st==='read')body=`<div class="shot" id="shot"></div><div class="bar"><i style="width:${SC.pct}%"></i></div><div id="scanMsg" class="sub" role="status" aria-live="polite">${esc(SC.msg)}</div>`;
+  if(st==='result')body=`<div class="shot" id="shot"></div>
+    <div id="scanMsg" class="sub" role="status" aria-live="polite">${top?(top.partial?'Only part of the VIN was read. Fix it below.':top.score>=(vin?70:6)?'Read. Check it against the photo, then accept.':'Check it against the photo before accepting.'):esc(SC.msg)}</div>
+    <label class="field"><span>${T.lab} <b id="vinLen" class="num">${top?T.len(top.value):''}</b></span><input id="scanType" ${T.inp} value="${esc(top?top.value:'')}" style="font-family:var(--f-mono);font-size:18px;letter-spacing:.05em" oninput="${T.fmt}"></label>
+    ${SC.cands.length>1?`<div class="sub">Other readings:</div>${SC.cands.slice(1).map((c,i)=>`<button class="cand" data-act="scanFill" data-i="${i+1}"><b>${esc(c.label)}</b><span class="sub">${esc(c.note||'')}</span></button>`).join('')}`:''}
+    <button class="btn pri" data-act="scanTyped">${T.acc}</button>
+    <div class="btnrow"><button class="btn" data-act="scanRecrop">Crop again</button>${files('Retake photo')}</div>`;
+  s.innerHTML=`<div class="shade" data-act="scanClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${T.title}"><div class="sheet-h"><button class="btn sm" data-act="scanClose">Close</button><h2>${T.title}</h2></div><div class="sheet-b">${body}${st==='pick'&&SC.msg?`<div class="sub">${esc(SC.msg)}</div>`:''}</div></div>`;
+  const sh=$('#shot');if(sh&&SC.canvas)sh.appendChild(showCanvas(st!=='crop'));
+  for(const id of ['scanFile','scanFile2']){const f=$('#'+id);if(f)f.onchange=async e=>{const file=e.target.files[0];if(file)await loadScanFile(file)}}
+}
+ACT.scanAccept=()=>{
+  if(SC.region)SC.canvas=cropRegion(SC.orig,SC.region);else SC.canvas=SC.orig;
+  SC.region=null;runScan();
+};
+ACT.scanRecrop=()=>{SC.canvas=SC.orig;SC.region=null;SC.cands=[];SC.step='crop';drawScan()};
+ACT.scanFill=b=>{const c=SC.cands[+b.dataset.i],el=$('#scanType');if(c&&el){el.value=c.value;const l=$('#vinLen');if(l&&SC.kind==='vin')l.textContent=c.value.length+'/17'}};
+
 /* ---------- small form helpers ---------- */
 const fld=(label,inner,cls)=>`<label class="field ${cls||''}"><span>${label}</span>${inner}</label>`;
 function inp(m,f,val,o){o=o||{};
@@ -871,28 +918,48 @@ function afterVin(vin){
   NJ.vin=vin;const v=S.vehicles.find(x=>x.vin===vin);
   if(v){
     if(NJ.mode==='vehicleOnly'){toast('That VIN is already on file for '+(cust(v.customerId)||{}).name);return}
-    if(NJ.customerId&&NJ.customerId!==v.customerId)toast('That VIN is already on '+(cust(v.customerId)||{}).name+"'s account. Using it.");
-    return makeJob(v.id)}
-  Object.assign(NJ,{year:'',make:'',model:'',trim:'',plate:''});
+    NJ.knownVeh=v.id;sheet(njKnown);return;
+  }
+  Object.assign(NJ,{year:'',make:'',model:'',trim:'',plate:'',custMode:'existing',decoding:true});
   sheet(njVehicleForm);
-  decodeVin(vin).then(d=>{if(!d||NJ.vin!==vin)return;for(const k of ['year','make','model','trim'])if(!NJ[k])NJ[k]=d[k];if(stack.length)drawSheet(true);else {}});
+  decodeVin(vin).then(d=>{if(NJ.vin!==vin)return;NJ.decoding=false;NJ.decoded=!!d;if(d)for(const k of ['year','make','model','trim'])if(!NJ[k])NJ[k]=d[k];if(stack.length)drawSheet(true)});
 }
+function njKnown(){
+  const v=veh(NJ.knownVeh),c=cust(v.customerId),m=vehMiles(v.id),last=S.jobs.filter(j=>j.vehicleId===v.id).sort((a,b)=>b.created.localeCompare(a.created))[0];
+  return shHead('Vehicle found')+`<div class="sheet-b">
+   <div class="card sec"><div class="sub">This VIN is already on file.</div><div class="title-line">${esc(vehTitle(v))} ${esc(v.trim||'')}</div><div class="vin">${esc(v.vin)}</div>
+    <div class="sub">${v.plate?'Plate '+esc(v.plate)+' &middot; ':''}${m?'Last mileage '+fmtNum(m):'No mileage on file'}${last?' &middot; last visit '+fmtDate(last.created):''}</div></div>
+   <div class="card sec"><div class="sub">Customer</div><div class="title-line">${esc(c?c.name:'')}</div><div class="sub">${esc(c?c.phone:'')}</div></div>
+   <button class="btn pri" data-act="njKnownGo">Start job for ${esc(c?c.name:'this customer')}</button></div>`;
+}
+ACT.njKnownGo=()=>makeJob(NJ.knownVeh);
 function njVehicleForm(){
-  const vo=NJ.mode==='vehicleOnly';
-  return shHead('New vehicle')+`<div class="sheet-b">
-  ${fld('VIN',inp('nj','vin',NJ.vin||'',{fmt:'vin',max:17,cap:1}))}
-  <button class="linkbtn" data-act="njRedecode">Look up year, make and model from VIN</button>
-  <div class="g2">${fld('Year',inp('nj','year',NJ.year,{mode:'numeric',max:4}))}${fld('Make',inp('nj','make',NJ.make))}</div>
-  <div class="g2">${fld('Model',inp('nj','model',NJ.model))}${fld('Trim',inp('nj','trim',NJ.trim))}</div>
-  ${fld('Plate',inp('nj','plate',NJ.plate,{cap:1}))}
-  ${NJ.lockCust?`<div class="card"><b>${esc((cust(NJ.customerId)||{}).name)}</b></div>`:
-   fld('Customer',`<select data-m="nj" data-f="customerId" data-redraw="1"><option value="">New customer...</option>${S.customers.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`<option value="${c.id}" ${NJ.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`)}
-  ${!NJ.customerId?`<div class="g2">${fld('Customer name',inp('nj','cname',NJ.cname||''))}${fld('Phone',inp('nj','cphone',NJ.cphone||'',{type:'tel',fmt:'phone'}))}</div>`:''}
+  const vo=NJ.mode==='vehicleOnly',mode=NJ.custMode||'existing',sel=NJ.customerId?cust(NJ.customerId):null;
+  const custBlock=NJ.lockCust?`<div class="card"><b>${esc((cust(NJ.customerId)||{}).name)}</b></div>`:`<div class="sec"><h3>Customer</h3>
+    <div class="chips" role="group" aria-label="Customer"><button class="chip" aria-pressed="${mode==='existing'}" data-act="njMode" data-m="existing">Existing customer</button><button class="chip" aria-pressed="${mode==='new'}" data-act="njMode" data-m="new">New customer</button></div>
+    ${mode==='existing'?(sel?`<div class="card between"><div><b>${esc(sel.name)}</b><div class="sub">${esc(sel.phone)}</div></div><button class="btn sm" data-act="njUnpick">Change</button></div>`:
+      `<input id="njQ2" type="search" placeholder="Search name, phone, plate or VIN" oninput="njFilter2()" autocomplete="off"><div id="njList2" class="sec">${njList2('')}</div>`):
+      `<div class="g2">${fld('Customer name',inp('nj','cname',NJ.cname||''))}${fld('Phone',inp('nj','cphone',NJ.cphone||'',{type:'tel',fmt:'phone'}))}</div>`}</div>`;
+  return shHead(vo?'Add vehicle':'New vehicle')+`<div class="sheet-b">
+  <div class="card sec"><div class="sub">${NJ.decoding?'Looking up vehicle details from the VIN...':NJ.decoded?'Details filled in from the VIN. Check them.':'Could not look up this VIN. Fill in the details by hand.'}</div>
+   ${fld('VIN',inp('nj','vin',NJ.vin||'',{fmt:'vin',max:17,cap:1}))}
+   <div class="g2">${fld('Year',inp('nj','year',NJ.year,{mode:'numeric',max:4}))}${fld('Make',inp('nj','make',NJ.make))}</div>
+   <div class="g2">${fld('Model',inp('nj','model',NJ.model))}${fld('Trim',inp('nj','trim',NJ.trim))}</div>
+   ${fld('Plate',inp('nj','plate',NJ.plate,{cap:1}))}
+   <button class="linkbtn" data-act="njRedecode">Look up again</button></div>
+  ${custBlock}
   <button class="btn pri" data-act="njSave">${vo?'Save vehicle':'Save and start job'}</button></div>`}
+function njList2(q){const l=findCustomers(q);
+  return l.length?l.slice(0,30).map(c=>`<button class="cand" data-act="njSetCust" data-id="${c.id}"><div><b class="nm">${esc(c.name)}</b><div class="sub">${esc(c.phone)} &middot; ${S.vehicles.filter(v=>v.customerId===c.id).length} vehicles</div></div></button>`).join(''):'<div class="empty">No match. Choose New customer to add them.</div>'}
+function njFilter2(){const e=$('#njList2');if(e)e.innerHTML=njList2($('#njQ2').value)}
+ACT.njMode=b=>{NJ.custMode=b.dataset.m;if(NJ.custMode==='new')NJ.customerId='';refresh()};
+ACT.njSetCust=b=>{NJ.customerId=b.dataset.id;refresh()};
+ACT.njUnpick=()=>{NJ.customerId='';refresh()};
 ACT.njRedecode=async()=>{const d=await decodeVin(NJ.vin);if(!d){toast('Could not look that up. Fill it in by hand.');return}Object.assign(NJ,d);refresh()};
 ACT.njSave=()=>{
   if(!NJ.vin){toast('Enter the VIN first');return}
   let cid=NJ.customerId;
+  if(!cid&&NJ.custMode==='existing'&&!NJ.lockCust){toast('Pick a customer, or choose New customer');return}
   if(!cid){if(!String(NJ.cname||'').trim()){toast('Enter the customer name');return}
     const c={id:uid(),name:NJ.cname.trim(),phone:NJ.cphone||'',email:'',address:'',taxExempt:false,notes:''};S.customers.push(c);cid=c.id}
   const v={id:uid(),customerId:cid,vin:NJ.vin,year:NJ.year||'',make:NJ.make||'',model:NJ.model||'',trim:NJ.trim||'',plate:NJ.plate||'',reminders:[]};
@@ -902,7 +969,7 @@ ACT.njSave=()=>{
 };
 ACT.njCust=()=>sheet(()=>shHead('Choose customer')+`<div class="sheet-b"><input id="njQ" type="search" placeholder="Search name, phone, plate or VIN" oninput="njFilter()" autocomplete="off"><div id="njList" class="sec">${njList('')}</div></div>`);
 function njList(q){const l=findCustomers(q);
-  return l.length?l.map(c=>`<button class="cand" data-act="njPickCust" data-id="${c.id}"><div><b>${esc(c.name)}</b><div class="sub">${esc(c.phone)} &middot; ${S.vehicles.filter(v=>v.customerId===c.id).length} vehicles</div></div></button>`).join(''):'<div class="empty">No match</div>'}
+  return l.length?l.map(c=>`<button class="cand" data-act="njPickCust" data-id="${c.id}"><div><b class="nm">${esc(c.name)}</b><div class="sub">${esc(c.phone)} &middot; ${S.vehicles.filter(v=>v.customerId===c.id).length} vehicles</div></div></button>`).join(''):'<div class="empty">No match</div>'}
 function njFilter(){const e=$('#njList');if(e)e.innerHTML=njList($('#njQ').value)}
 ACT.njPickCust=b=>{NJ.customerId=b.dataset.id;NJ.lockCust=true;sheet(njVehiclesSheet)};
 function njVehiclesSheet(){
@@ -1144,7 +1211,7 @@ function histSheet(jobId){
 function signIn(){
   stack.length=0;
   stack.push(()=>`<div class="sheet-h"><h2>Who is working?</h2></div><div class="sheet-b"><p class="sub">Pick your name. The shop can add or change names in Settings.</p>
-   ${S.staff.filter(s=>s.active).map(s=>`<button class="cand" data-act="pickUser" data-id="${s.id}"><div class="row">${dotH(s)}<div><b style="font-family:var(--f-body)">${esc(s.name)}</b><div class="sub">${{admin:'Admin',office:'Office',tech:'Technician'}[s.role]}</div></div></div></button>`).join('')}</div>`);
+   ${S.staff.filter(s=>s.active).map(s=>`<button class="cand" data-act="pickUser" data-id="${s.id}"><div class="row">${dotH(s)}<div><b style="font-family:var(--f-body)">${esc(s.name)}</b><div class="sub">${{admin:'Admin',office:'Office',tech:'Technician'}[s.role]}</div></div></div></button>`).join('')}<div class="sub" style="text-align:center;margin-top:14px">Version ${APP_VERSION}</div></div>`);
   drawSheet();
 }
 ACT.popSheet=()=>{if(!me())return;popSheet()};
@@ -1322,6 +1389,7 @@ function vSettings(){
   <div class="card sec"><h3>Inspection checklist</h3><div class="sub">One item per line. Use "Group: item" to group them.</div>${area('set','checklistText',st.checklistText)}</div>`:''}
   <div class="card sec"><h3>Backup</h3><div class="sub">Everything is stored in this browser only. Export a backup regularly, and before clearing browser data.</div>
    <div class="btnrow"><button class="btn" data-act="backup">Export backup</button><label class="btn" style="cursor:pointer">Restore backup<input type="file" accept=".json" hidden id="restoreFile"></label></div></div>
+  <div class="card sec"><h3>About</h3><div class="sub">Bloom Repair version ${APP_VERSION} (${APP_DATE})</div></div>
   <div class="card sec"><h3>Sample data</h3>${S.demo?'<div class="sub">Sample customers and jobs are loaded.</div><button class="btn" data-act="clearDemo">Remove sample data</button>':'<button class="btn" data-act="loadDemo">Load sample data</button>'}</div>`;
 }
 ACT.addStaff=()=>{S.staff.push({id:uid(),name:'New person',role:'tech',color:COLORS[S.staff.length%COLORS.length],active:true});persistNow();render()};
