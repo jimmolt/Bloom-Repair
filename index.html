@@ -1,0 +1,1367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#262b30">
+<title>Bloom Repair</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout concept: one-hand shop tool. Graphite header, tab row, card lists, full-height sheets for jobs and scans. */
+:root{
+  --bg:#eceff1;--surface:#ffffff;--surface2:#e2e7ea;--ink:#1b2025;--muted:#59646d;--line:#cdd5da;
+  --head:#262b30;--head-ink:#f2f4f5;--brand:#c94a14;--brand-ink:#ffffff;--brand-soft:#fbe2d4;
+  --est:#8a5a00;--est-soft:#fbebc8;--open:#235ea6;--open-soft:#dbe8f7;--ready:#11706a;--ready-soft:#d2eeea;
+  --inv:#6a47a6;--inv-soft:#e8e0f6;--paid:#1b7547;--paid-soft:#d6efe0;--bad:#b3261e;--bad-soft:#fbdedb;
+  --watch:#8a5a00;--watch-soft:#fbebc8;
+  --paper:#ffffff;--paper-ink:#1a1a1a;--paper-line:#cfcfcf;--paper-muted:#666666;
+  --shadow:0 1px 2px rgba(20,30,40,.08),0 4px 14px rgba(20,30,40,.07);
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Public Sans','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#121618;--surface:#1b2125;--surface2:#262d32;--ink:#e5e9ec;--muted:#98a4ad;--line:#2f383e;
+  --head:#0c0f10;--head-ink:#eef1f2;--brand:#ee7b46;--brand-ink:#1a0d06;--brand-soft:#3e2417;
+  --est:#f0be5a;--est-soft:#3a2d0e;--open:#7fb3f0;--open-soft:#16283f;--ready:#5fd0c6;--ready-soft:#10302d;
+  --inv:#bda3ee;--inv-soft:#2a2040;--paid:#6fd596;--paid-soft:#12301f;--bad:#ff9a8f;--bad-soft:#40181a;
+  --watch:#f0be5a;--watch-soft:#3a2d0e;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;overflow-x:clip;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 60px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--head)}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{font-size:16px}
+button{touch-action:manipulation}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:20px}h3{font-size:16px}
+.wrap{max-width:980px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--f-mono);letter-spacing:.02em}
+.muted{color:var(--muted)}.small{font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.grow{flex:1;min-width:0}
+a{color:var(--open)}
+
+/* header + nav */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));
+  padding-inline:max(16px,env(safe-area-inset-left,0px));background:var(--head);color:var(--head-ink)}
+.top .wrap{display:flex;align-items:center;gap:10px;padding-block:9px}
+.brand{display:flex;align-items:center;gap:9px;flex:none}
+.brand svg{width:30px;height:30px;color:var(--brand);flex:none}
+.brand b{font:800 22px/1 var(--f-display);letter-spacing:.01em}
+.brand span{display:block;font:600 10px/1 var(--f-body);letter-spacing:.28em;text-transform:uppercase;opacity:.8;margin-top:3px}
+.who{display:flex;align-items:center;gap:7px;border:1px solid #ffffff33;background:transparent;color:inherit;border-radius:999px;padding:4px 11px 4px 5px;cursor:pointer;min-height:36px}
+.nav{position:sticky;top:calc(env(safe-area-inset-top,0px) + 54px);z-index:15;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));
+  padding-inline:max(16px,env(safe-area-inset-left,0px));background:var(--bg);border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;background:none;padding:12px 13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;min-height:44px}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--brand)}
+.tab .n{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:var(--surface2);font-size:11px;line-height:18px;text-align:center}
+.searchrow{padding:0 0 10px}
+.searchrow input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+main{padding-top:14px;display:grid;gap:12px}
+
+/* controls */
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;min-height:42px;white-space:nowrap}
+.btn:hover{background:var(--surface2)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.sm{padding:5px 10px;min-height:32px;font-size:13px}
+.btn.bad{color:var(--bad);border-color:var(--bad)}
+.btn[disabled]{opacity:.5;cursor:default}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 130px}
+.linkbtn{background:none;border:0;color:var(--open);text-decoration:underline;padding:4px 0;cursor:pointer;font-weight:500}
+.field{display:grid;gap:4px;min-width:0}
+.field>span{font:600 12px var(--f-body);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+input[type=text],input[type=tel],input[type=email],input[type=number],input[type=search],input[type=date],select,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);min-width:0}
+textarea{min-height:76px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,.btn:focus-visible,.tab:focus-visible,button:focus-visible{outline:3px solid var(--brand);outline-offset:1px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:480px){.g3{grid-template-columns:1fr 1fr}}
+.chk{display:flex;align-items:center;gap:8px;min-height:34px}
+.chk input{width:20px;height:20px}
+
+/* cards, pills, chips */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow);min-width:0}
+.card.tap{cursor:pointer}.card.tap:hover{border-color:var(--muted)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.between{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.between>*{min-width:0}
+.between>.pill,.between>.btn{flex:none}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+.pill.estimate{background:var(--est-soft);color:var(--est)}.pill.open{background:var(--open-soft);color:var(--open)}
+.pill.upcoming{background:var(--surface2);color:var(--muted)}
+.pill.ready{background:var(--ready-soft);color:var(--ready)}.pill.invoiced{background:var(--inv-soft);color:var(--inv)}
+.pill.paid{background:var(--paid-soft);color:var(--paid)}.pill.bad,.pill.overdue{background:var(--bad-soft);color:var(--bad)}
+.pill.soon,.pill.watch{background:var(--watch-soft);color:var(--watch)}.pill.ok{background:var(--paid-soft);color:var(--paid)}
+.chips{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap;min-height:36px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:800;color:#1b1b1b;flex:none;border:2px solid var(--surface)}
+.dots{display:flex}.dots .dot+.dot{margin-left:-7px}
+.empty{padding:26px 14px;text-align:center;color:var(--muted)}
+.vin{font-family:var(--f-mono);font-size:13px;letter-spacing:.04em}
+.title-line{font:700 16px var(--f-display)}
+.sub{color:var(--muted);font-size:13.5px}
+.due{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:9px 0;border-top:1px solid var(--line)}
+.due:first-of-type{border-top:0}
+.due .grow{flex:1 1 170px;min-width:0}
+.due .btnrow{flex:1 0 100%!important}
+.due .btnrow .btn{flex:1 1 80px;text-align:center}
+.banner{background:var(--est-soft);color:var(--est);border-radius:10px;padding:10px 14px;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+body.tech .price{display:none!important}
+
+/* sheets */
+#modal,#scan{position:fixed;inset:0;z-index:50;display:none}
+#scan{z-index:60}
+#modal.on,#scan.on{display:block}
+.shade{position:absolute;inset:0;background:#0009}
+.sheet{position:absolute;left:50%;transform:translateX(-50%);top:max(0px,env(safe-area-inset-top,0px));bottom:0;width:min(760px,100%);background:var(--bg);display:flex;flex-direction:column;
+  border-radius:14px 14px 0 0;box-shadow:0 -8px 40px #0006}
+.sheet-h{display:flex;align-items:center;gap:10px;padding:12px max(14px,env(safe-area-inset-left,0px));background:var(--surface);border-bottom:1px solid var(--line);border-radius:14px 14px 0 0}
+.sheet-h h2{flex:1;min-width:0;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet-b{flex:1;overflow-y:auto;padding:14px max(14px,env(safe-area-inset-left,0px)) 90px;display:grid;gap:12px;align-content:start;-webkit-overflow-scrolling:touch}
+.sec{display:grid;gap:10px}
+.sec>h3{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bigbtn{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px;cursor:pointer;min-height:64px;width:100%}
+.bigbtn:hover{border-color:var(--brand)}
+.bigbtn svg{width:30px;height:30px;color:var(--brand);flex:none}
+.bigbtn b{display:block;font:700 16px var(--f-display)}
+.sheet-b{align-content:start;grid-auto-rows:min-content}
+.sheet-b>*{min-width:0}
+.step{min-height:40px;display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.step button{flex:1 0 auto;border:1px solid var(--line);background:var(--surface);padding:8px 10px;font-weight:700;font-size:13px;cursor:pointer;border-radius:8px;min-height:38px}
+.step button[aria-current=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* job card lines */
+.line{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 0;border-top:1px solid var(--line)}
+.line:first-of-type{border-top:0}
+.line .l1{font-weight:600;overflow-wrap:anywhere}
+.line .ctl{display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1;align-items:end}
+.line .ctl .field{flex:1 1 70px}
+.totals{display:grid;gap:4px;justify-items:end;font-variant-numeric:tabular-nums}
+.totals div{display:flex;gap:18px;justify-content:space-between;min-width:210px}
+.totals .grand{font:800 20px var(--f-display);border-top:2px solid var(--ink);padding-top:6px;margin-top:4px}
+
+/* inspection */
+.igrp{font:700 12px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:10px 0 4px}
+.irow{border-top:1px solid var(--line);padding:9px 0;display:grid;gap:7px}
+.irow .t{font-weight:600}
+.seg3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg3 button{border:1px solid var(--line);background:var(--surface);border-radius:8px;min-height:40px;font-weight:700;cursor:pointer}
+.seg3 button[aria-pressed=true][data-r=ok]{background:var(--paid-soft);color:var(--paid);border-color:var(--paid)}
+.seg3 button[aria-pressed=true][data-r=watch]{background:var(--watch-soft);color:var(--watch);border-color:var(--watch)}
+.seg3 button[aria-pressed=true][data-r=bad]{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+
+/* photos + notes */
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.ph{position:relative;border-radius:8px;overflow:hidden;background:var(--surface2);aspect-ratio:1;border:1px solid var(--line)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+.ph button{position:absolute;top:4px;right:4px;border:0;background:#000a;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer}
+.note{border-left:3px solid var(--line);padding:2px 0 2px 10px;white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* scanner */
+.shot{position:relative;display:flex;justify-content:center;background:#000;border-radius:10px;overflow:hidden}
+.shot canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--brand);transition:width .2s}
+.cand{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;cursor:pointer;min-height:52px}
+.cand:hover{border-color:var(--brand)}
+.cand b{font-family:var(--f-mono);font-size:16px;letter-spacing:.04em;overflow-wrap:anywhere}
+.sigpad{width:100%;height:150px;border:1px dashed var(--muted);border-radius:8px;background:var(--surface);touch-action:none;display:block}
+
+/* estimate + invoice paper */
+.paper{background:var(--paper);color:var(--paper-ink);border-radius:6px;padding:22px;box-shadow:var(--shadow);font-size:13.5px}
+.paper h1{font:800 22px var(--f-display);margin:0}
+.paper table{width:100%;border-collapse:collapse;margin-top:10px}
+.paper th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;border-bottom:2px solid var(--paper-ink);padding:5px 4px;color:var(--paper-muted)}
+.paper td{padding:6px 4px;border-bottom:1px solid var(--paper-line);vertical-align:top}
+.paper .r{text-align:right;font-variant-numeric:tabular-nums}
+.paper .meta{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:12px}
+.paper .sig img{height:60px;display:block}
+.paper .mono{font-family:var(--f-mono)}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:max(24px,env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:90;font-weight:600;max-width:90vw}
+.lightbox{position:fixed;inset:0;z-index:80;background:#000e;display:flex;align-items:center;justify-content:center;padding:16px}
+.lightbox img{max-width:100%;max-height:100%;border-radius:6px}
+
+@media print{
+  body{background:#fff;padding:0}body::before,.top,.nav,main,.shade,.sheet-h,.noprint{display:none!important}
+  #modal,#modal.on{position:static!important;display:block!important}
+  .sheet{position:static!important;transform:none!important;width:auto!important;box-shadow:none!important;background:#fff!important;border-radius:0!important}
+  .sheet-b{overflow:visible!important;padding:0!important}
+  .paper{box-shadow:none!important;padding:0!important}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top"><div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 4.5a6.5 6.5 0 0 0-6.2 8.4L5 23.2a2.9 2.9 0 0 0 4.100 4.100l10.300-10.300a6.500 6.500 0 0 0 8.400-6.200l-4.300 4.300-3.400-.9-.9-3.400z"/></svg>
+      <div><b>Bloom</b><span>Repair</span></div>
+    </div>
+    <div class="grow"></div>
+    <button class="who" data-act="switchUser" id="who" aria-label="Switch user"></button>
+    <button class="btn pri" data-act="newJob">+ New job</button>
+  </div></header>
+  <div class="nav"><div class="wrap">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="searchrow" id="searchrow"><input id="q" type="search" placeholder="Search" autocomplete="off" aria-label="Search"></div>
+  </div></div>
+  <div class="wrap"><main id="view"></main></div>
+</div>
+<div id="modal"></div>
+<div id="scan"></div>
+<script>
+/* Pure logic. No DOM access, so Node can test it. */
+const num=v=>{const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''));return isFinite(n)?n:0};
+const r2=n=>Math.round((+n||0)*100)/100;
+const money=n=>(n<0?'-':'')+'$'+Math.abs(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtNum=n=>Math.round(+n||0).toLocaleString('en-US');
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today=()=>ymd(new Date());
+const dObj=s=>new Date(s+'T12:00:00');
+const addDays=(s,n)=>{const d=dObj(s);d.setDate(d.getDate()+n);return ymd(d)};
+const addMonths=(s,n)=>{const d=dObj(s),day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);
+  const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return ymd(d)};
+const daysBetween=(a,b)=>Math.round((dObj(b)-dObj(a))/864e5);
+const fmtDate=s=>s?dObj(s.slice(0,10)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const slug=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const fmtPhone=s=>{const d=String(s||'').replace(/\D/g,'').replace(/^1(?=\d{10})/,'').slice(0,10);
+  if(d.length<=3)return d;if(d.length<=6)return '('+d.slice(0,3)+') '+d.slice(3);return '('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6)};
+
+/* ---------- VIN ---------- */
+const TRANSLIT={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
+const WEIGHTS=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+const VIN_RE=/^[A-HJ-NPR-Z0-9]{17}$/;
+const YEAR_CHARS='ABCDEFGHJKLMNPRSTVWXY123456789';
+const CONF=[['0','D'],['5','S'],['8','B'],['2','Z'],['6','G'],['1','7'],['U','V'],['C','G'],['E','F'],['H','N'],['M','N']];
+function checkDigitOK(v){
+  if(!VIN_RE.test(v))return false;
+  let sum=0;
+  for(let i=0;i<17;i++){const c=v[i];sum+=(/\d/.test(c)?+c:TRANSLIT[c])*WEIGHTS[i]}
+  const r=sum%11;return v[8]===(r===10?'X':String(r));
+}
+function plausible(v){return VIN_RE.test(v)&&YEAR_CHARS.includes(v[9])}
+function normalizeRun(s){return s.toUpperCase().replace(/\bVIN\b[:#]?/g,' ').replace(/[^A-Z0-9]/g,'').replace(/I/g,'1').replace(/[OQ]/g,'0')}
+function candidatesFromText(text){
+  const out=new Map();
+  const all=text.split(/\r?\n/).map(normalizeRun);
+  for(const s of all.filter(s=>s.length>=17)){
+    for(let i=0;i+17<=s.length;i++){
+      const w=s.slice(i,i+17);
+      if(!VIN_RE.test(w))continue;
+      const valid=checkDigitOK(w),exact=s.length===17,prev=out.get(w);
+      if(!prev)out.set(w,{vin:w,valid,exact});else if(exact)prev.exact=true;
+    }
+  }
+  /* Glare or a scratch can split one VIN into two fragments, sometimes out of order.
+     A join only counts when the pieces add up to exactly 17 characters and the check digit passes. */
+  if(![...out.values()].some(c=>c.valid)){
+    const frags=all.filter(s=>s.length>=4&&s.length<17).sort((a,b)=>b.length-a.length).slice(0,5);
+    for(const a of frags)for(const b of frags){
+      if(a===b)continue;const s=a+b;
+      if(s.length===17&&plausible(s)&&checkDigitOK(s)&&!out.has(s))out.set(s,{vin:s,valid:true,exact:false,joined:true});
+    }
+  }
+  return [...out.values()];
+}
+function partialFromText(text){
+  const runs=text.split(/\r?\n/).map(normalizeRun).filter(s=>s.length>=10&&s.length<17);
+  runs.sort((a,b)=>b.length-a.length);return runs[0]||'';
+}
+function neighbors(ch){const s=new Set();for(const g of CONF)if(g.includes(ch))g.forEach(x=>{if(x!==ch)s.add(x)});return [...s]}
+function repairs(vin){
+  const res=[];if(vin.length!==17)return res;
+  for(let i=0;i<17;i++)for(const n of neighbors(vin[i])){
+    const t=vin.slice(0,i)+n+vin.slice(i+1);
+    if(plausible(t)&&checkDigitOK(t))res.push({vin:t,pos:i,from:vin[i],to:n});
+  }
+  return res.slice(0,4);
+}
+function vinFromBarcode(t){
+  let s=String(t||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(s.length===18&&s[0]==='I')s=s.slice(1);
+  s=s.replace(/[OQ]/g,'0');
+  return VIN_RE.test(s)?s:null;
+}
+const cleanVin=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/I/g,'1').replace(/[OQ]/g,'0').slice(0,17);
+
+/* ---------- odometer ---------- */
+function odoCandidates(text){
+  const out=new Map();
+  for(const line of String(text).split(/\r?\n/)){
+    for(const m of line.match(/\d{1,3}(?:,\d{3})+|\d+/g)||[]){
+      const d=m.replace(/,/g,'');
+      if(d.length<3||d.length>7)continue;
+      const v=parseInt(d,10);
+      let s=d.length>=5&&d.length<=6?3:(d.length===4||d.length===7?2:1);
+      const cur=out.get(v);
+      if(cur){cur.score+=1}else out.set(v,{miles:v,score:s});
+    }
+  }
+  return [...out.values()].sort((a,b)=>b.score-a.score||b.miles-a.miles).slice(0,6);
+}
+
+/* ---------- part numbers ---------- */
+const normPart=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+function partCandidates(text){
+  const out=new Map();
+  const add=(raw,score,kind)=>{
+    raw=String(raw).trim().replace(/^[\-.\/]+|[\-.\/]+$/g,'');
+    const n=normPart(raw);if(n.length<3||n.length>20)return;
+    const cur=out.get(n);if(!cur||cur.score<score)out.set(n,{text:raw,norm:n,score,kind});
+  };
+  const LBL=/\b(?:P\/N|PN|PART\s*(?:NO|NUM(?:BER)?|#)?|ITEM\s*(?:NO|#)?|MODEL|CAT(?:ALOG)?\s*(?:NO|#)?|SKU|REF)\b\.?\s*[:#]?\s*([A-Z0-9][A-Z0-9\-\/.]{2,19})/g;
+  for(const line of String(text).toUpperCase().split(/\r?\n/)){
+    let m;LBL.lastIndex=0;
+    while((m=LBL.exec(line)))add(m[1],8,'part');
+    for(const u of line.match(/\b\d[\d ]{9,16}\d\b/g)||[]){const d=u.replace(/ /g,'');if(d.length>=11&&d.length<=14)add(d,3,'upc')}
+    for(const t of line.match(/[A-Z0-9][A-Z0-9\-\/.]{2,19}/g)||[]){
+      if(!/\d/.test(t))continue;
+      if(/^\$?\d+\.\d{2}$/.test(t))continue;
+      if(/^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}$/.test(t))continue;
+      if(/^(19|20)\d{2}(-(19|20)?\d{2})?$/.test(t))continue;
+      if(/^\d{11,14}$/.test(t)){add(t,3,'upc');continue}
+      let s=2;if(/[A-Z]/.test(t)&&/\d/.test(t))s+=2;if(/-/.test(t))s+=1;if(t.length>=5&&t.length<=12)s+=1;
+      add(t,s,'part');
+    }
+  }
+  return [...out.values()].sort((a,b)=>b.score-a.score||b.norm.length-a.norm.length).slice(0,10);
+}
+
+/* ---------- CSV (supplier price lists) ---------- */
+function parseCSV(text){
+  text=String(text).replace(/^﻿/,'');
+  const first=text.split(/\r?\n/)[0]||'';
+  const delim=[',','\t',';','|'].map(d=>[d,first.split(d).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  const rows=[];let row=[],cur='',q=false;
+  const endRow=()=>{row.push(cur);cur='';if(row.some(c=>c.trim()!==''))rows.push(row);row=[]};
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){cur+='"';i++}else q=false}else cur+=ch}
+    else if(ch==='"')q=true;
+    else if(ch===delim){row.push(cur);cur=''}
+    else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;endRow()}
+    else cur+=ch;
+  }
+  if(cur!==''||row.length)endRow();
+  return rows;
+}
+function guessColumns(header){
+  const f=re=>header.findIndex(h=>re.test(String(h).trim()));
+  return {number:f(/part\s*(no|num|#)|^part$|item\s*(no|num|#)|sku|^number$|^p\/?n$|^item$/i),
+    desc:f(/desc|name|title/i),cost:f(/cost|net|dealer|wholesale|your\s*price/i),
+    list:f(/list|retail|msrp|^price$/i),brand:f(/brand|mfr|manufact|^line$/i)};
+}
+function csvOut(rows){return rows.map(r=>r.map(v=>{v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\n')}
+
+/* ---------- money ---------- */
+const priceFromCost=(cost,markupPct)=>r2(num(cost)*(1+num(markupPct)/100));
+function jobTotals(j,st,c){
+  let labor=0,parts=0,hours=0;
+  for(const l of j.labor||[]){labor+=num(l.hours)*num(l.rate);hours+=num(l.hours)}
+  for(const p of j.parts||[])parts+=num(p.qty)*num(p.price);
+  labor=r2(labor);parts=r2(parts);
+  const rate=c&&c.taxExempt?0:num(st.taxRate)/100;
+  const tax=r2((parts+(st.laborTaxable?labor:0))*rate);
+  return {labor,parts,tax,hours:r2(hours),total:r2(labor+parts+tax)};
+}
+
+/* ---------- service history + reminders ---------- */
+function lastMileage(vehicleId,jobs){
+  let best=null;
+  for(const j of jobs)if(j.vehicleId===vehicleId)for(const k of [j.mileageIn,j.mileageOut]){
+    const v=num(k);if(k!==''&&k!=null&&v>0&&(best==null||v>best))best=v;
+  }
+  return best;
+}
+function remState(r,mileage,todayStr){
+  const dd=r.dueDate?daysBetween(todayStr,r.dueDate):null;
+  const dm=r.dueMiles!=null&&mileage!=null?r.dueMiles-mileage:null;
+  if((dd!=null&&dd<0)||(dm!=null&&dm<=0))return 'overdue';
+  if((dd!=null&&dd<=30)||(dm!=null&&dm<=500))return 'soon';
+  return 'ok';
+}
+function parseReminderTypes(text){
+  return String(text).split(/\r?\n/).map(l=>l.split('|').map(s=>s.trim())).filter(a=>a[0])
+    .map(a=>({id:slug(a[0]),label:a[0],miles:a[1]?num(a[1]):0,months:a[2]?num(a[2]):0}));
+}
+function parseChecklist(text){
+  const items=[];let group='General';
+  for(const raw of String(text).split(/\r?\n/)){
+    const l=raw.trim();if(!l)continue;
+    const m=l.match(/^([^:]{2,40}):\s*(.+)$/);
+    if(m&&!m[2].includes(':')){group=m[1].trim();items.push({id:slug(group+'-'+m[2]),group,label:m[2].trim()})}
+    else items.push({id:slug(group+'-'+l),group,label:l});
+  }
+  return items;
+}
+
+/* ---------- state, storage, shared helpers ---------- */
+const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ACT={};
+let S=null,P=[],idb=null,toastT=null,saveT=null;
+const ui={tab:'jobs',q:'',jobFilter:'active'};
+const STATUS=[['upcoming','Upcoming'],['open','In progress'],['ready','Completed'],['invoiced','Invoiced'],['paid','Paid']];
+const statusLabel=s=>(STATUS.find(x=>x[0]===s)||[0,s])[1];
+const COLORS=['#f5d547','#8fc7ff','#ff9ec4','#8ee0a0','#ffb766','#ff9a8a','#c9c9c9','#c3a6ff'];
+const NEED_CATS=['Shop supplies','Parts stock','Fluids','Tools and equipment','Other'];
+const DEF_CHECKLIST=['Brakes: Front pads and rotors','Rear pads and rotors or drums','Brake fluid','Brake lines and hoses',
+ 'Tires and wheels: Front tires, tread and wear','Rear tires, tread and wear','Tire pressure',
+ 'Under hood: Engine oil level and leaks','Coolant level and hoses','Drive belts','Battery and terminals','Air filter','Transmission, power steering and washer fluid',
+ 'Steering and suspension: Tie rods and ball joints','Shocks and struts','CV boots and axles',
+ 'Lights and wipers: Exterior lights','Wiper blades','Horn','Exhaust: Exhaust system leaks and hangers'].join('\n');
+
+function defaults(){return{v:1,demo:false,nextJob:1001,nextEst:1001,nextInv:1001,
+ settings:{shopName:'Bloom Repair',phone:'',address:'',laborRate:100,partsMarkup:40,taxRate:5.5,laborTaxable:false,techPrices:false,
+  invNote:'Thank you for your business.',
+  checklistText:DEF_CHECKLIST},
+ staff:[{id:'s1',name:'Owner',role:'admin',color:COLORS[0],active:true},{id:'s2',name:'Tech 1',role:'tech',color:COLORS[1],active:true},
+  {id:'s3',name:'Tech 2',role:'tech',color:COLORS[2],active:true},{id:'s4',name:'Tech 3',role:'tech',color:COLORS[3],active:true},
+  {id:'s5',name:'Bookkeeper',role:'office',color:COLORS[6],active:true}],
+ customers:[],vehicles:[],jobs:[],parts:[],needs:[]}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&d.v?d:null}catch(e){return null}}
+function persistNow(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Storage is full. Export a backup in Settings.')}}
+function persist(){clearTimeout(saveT);saveT=setTimeout(persistNow,250)}
+window.addEventListener('pagehide',persistNow);
+
+/* ---------- lookups ---------- */
+const cust=id=>S.customers.find(c=>c.id===id);
+const veh=id=>S.vehicles.find(v=>v.id===id);
+const job=id=>S.jobs.find(j=>j.id===id);
+const staffOf=id=>S.staff.find(s=>s.id===id);
+const me=()=>staffOf(localStorage.getItem(USERKEY))||null;
+const isAdmin=()=>{const m=me();return !!m&&(m.role==='admin'||m.role==='office')};
+const canSeePrices=()=>{const m=me();return !!m&&(m.role!=='tech'||S.settings.techPrices)};
+const isTech=()=>{const m=me();return !!m&&m.role==='tech'};
+const crew=()=>S.staff.filter(s=>s.active&&s.role!=='office');
+const photosOf=(jobId,kind)=>P.filter(p=>p.jobId===jobId&&(!kind||p.kind===kind));
+const initials=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const dotH=s=>s?`<span class="dot" style="background:${esc(s.color)}" title="${esc(s.name)}">${esc(initials(s.name))}</span>`:'';
+const vehTitle=v=>v?[v.year,v.make,v.model].filter(Boolean).join(' ')||'Vehicle':'(no vehicle)';
+const jobVeh=j=>veh(j.vehicleId);
+const jobCust=j=>cust(j.customerId);
+const totalsOf=j=>jobTotals(j,S.settings,cust(j.customerId));
+const vehMiles=id=>lastMileage(id,S.jobs);
+
+/* ---------- photo store (IndexedDB) ---------- */
+function openIDB(){return new Promise(r=>{try{const o=indexedDB.open('bloom-repair-photos',1);o.onupgradeneeded=()=>o.result.createObjectStore('p',{keyPath:'id'});
+  o.onsuccess=()=>r(o.result);o.onerror=()=>r(null);o.onblocked=()=>r(null)}catch(e){r(null)}})}
+const os=m=>idb.transaction('p',m).objectStore('p');
+function idbAll(){return new Promise(r=>{if(!idb)return r([]);try{const g=os('readonly').getAll();g.onsuccess=()=>r(g.result||[]);g.onerror=()=>r([])}catch(e){r([])}})}
+function idbPut(p){if(idb)try{os('readwrite').put(p)}catch(e){}}
+function idbDel(id){if(idb)try{os('readwrite').delete(id)}catch(e){}}
+function idbClear(){if(idb)try{os('readwrite').clear()}catch(e){}}
+
+/* ---------- images ---------- */
+async function fileToCanvas(file,maxSide){
+  maxSide=maxSide||3000;let bmp=null,src,w,h;
+  try{if(window.createImageBitmap)bmp=await createImageBitmap(file)}catch(e){}
+  if(bmp){src=bmp;w=bmp.width;h=bmp.height}
+  else{src=await new Promise((res,rej)=>{const u=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{URL.revokeObjectURL(u);res(im)};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('That photo could not be opened. On iPhone, set Settings > Camera > Formats to Most Compatible.'))};im.src=u});
+    w=src.naturalWidth;h=src.naturalHeight}
+  const k=Math.min(1,maxSide/Math.max(w,h)),c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));
+  c.getContext('2d').drawImage(src,0,0,c.width,c.height);if(bmp&&bmp.close)bmp.close();return c;
+}
+async function addPhotos(jobId,files,kind,refId){
+  let n=0;
+  for(const f of files){try{const c=await fileToCanvas(f,1400);
+    const p={id:uid(),jobId,kind:kind||'photo',refId:refId||'',caption:'',at:new Date().toISOString(),by:(me()||{}).id||'',data:c.toDataURL('image/jpeg',.8)};
+    P.push(p);idbPut(p);n++}catch(e){toast(e.message)}}
+  return n;
+}
+
+/* ---------- UI helpers ---------- */
+function toast(m){let t=$('#toast');if(t)t.remove();t=document.createElement('div');t.id='toast';t.textContent=m;document.body.appendChild(t);
+  clearTimeout(toastT);toastT=setTimeout(()=>t.remove(),2800)}
+function saveFile(name,text,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime||'text/plain'}));a.download=name;
+  document.body.appendChild(a);a.click();a.remove()}
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Copied');return}catch(e){}
+  const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Copied')}catch(e){toast('Select and copy it manually')}ta.remove()}
+function loadScript(url){return new Promise((res,rej)=>{const have=[...document.scripts].find(s=>s.src===url);if(have&&have.dataset.done)return res();
+  const s=have||document.createElement('script');s.src=url;s.onload=()=>{s.dataset.done=1;res()};s.onerror=()=>rej(new Error('Could not load '+url.split('/').slice(-1)[0]+'. Check the connection.'));if(!have)document.head.appendChild(s)})}
+const lightbox=src=>{const d=document.createElement('div');d.className='lightbox';d.innerHTML=`<img src="${src}" alt="Photo">`;d.onclick=()=>d.remove();document.body.appendChild(d)};
+
+/* ---------- sheets (modal stack) ---------- */
+const stack=[];
+function sheet(fn){stack.push(fn);drawSheet()}
+function popSheet(){stack.pop();drawSheet();render()}
+function drawSheet(keepScroll){
+  const m=$('#modal');
+  if(!stack.length){m.className='';m.innerHTML='';document.body.style.overflow='';return}
+  const old=m.querySelector('.sheet-b'),top=keepScroll&&old?old.scrollTop:0;
+  m.className='on';document.body.style.overflow='hidden';
+  m.innerHTML='<div class="shade" data-act="popSheet"></div><div class="sheet" role="dialog" aria-modal="true">'+stack[stack.length-1]()+'</div>';
+  const nb=m.querySelector('.sheet-b');if(nb&&top)nb.scrollTop=top;
+}
+const shHead=(title,right)=>`<div class="sheet-h"><button class="btn sm" data-act="popSheet" aria-label="${stack.length>1?'Back':'Close'}">${stack.length>1?'&larr; Back':'Close'}</button><h2>${title}</h2>${right||''}</div>`;
+ACT.popSheet=()=>popSheet();
+const refresh=()=>{drawSheet(true);render()};
+
+/* ---------- generic field binding ---------- */
+function target(m){
+  const [kind,a,b]=m.split(':');
+  if(kind==='nj')return NJ;if(kind==='pf')return PF;if(kind==='imp')return IMP;if(kind==='job')return job(a);if(kind==='veh')return veh(a);if(kind==='cust')return cust(a);if(kind==='set')return S.settings;
+  if(kind==='lab'){const j=job(a);return j&&j.labor.find(l=>l.id===b)}
+  if(kind==='prt'){const j=job(a);return j&&j.parts.find(l=>l.id===b)}
+  if(kind==='part')return S.parts.find(p=>p.id===a);
+  if(kind==='staff')return staffOf(a);
+  if(kind==='insp'){const j=job(a);return j&&j.inspection&&(j.inspection.items[b]||(j.inspection.items[b]={r:'',note:''}))}
+  return null;
+}
+function onField(e){
+  const el=e.target;if(!el.dataset||!el.dataset.f||!el.dataset.m)return;
+  const o=target(el.dataset.m);if(!o)return;
+  let v=el.type==='checkbox'?el.checked:el.value;
+  if(el.dataset.fmt==='phone'){v=fmtPhone(v);if(e.type==='change')el.value=v}
+  if(el.dataset.fmt==='vin'){v=cleanVin(v);if(el.value!==v)el.value=v}
+  o[el.dataset.f]=v;persist();
+  if(el.dataset.live)live();
+  if(e.type==='change'&&el.dataset.redraw)refresh();
+}
+document.addEventListener('change',onField);
+document.addEventListener('input',e=>{if(e.target.dataset&&(e.target.dataset.live||e.target.dataset.fmt==='vin'))onField(e)});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=ACT[b.dataset.act];if(a)a(b,e);
+});
+let liveFn=null;const live=()=>{if(liveFn)liveFn()};
+
+/* ---------- sample data ---------- */
+function seedDemo(){
+  const t=today(),ago=n=>addDays(t,-n);
+  const c1={id:'c1',demo:1,name:'Dave Henderson',phone:'(402) 555-0142',email:'dave@example.com',address:'412 Elm St',taxExempt:false,notes:''};
+  const c2={id:'c2',demo:1,name:'Maria Lopez',phone:'(402) 555-0177',email:'maria@example.com',address:'88 County Rd 12',taxExempt:false,notes:''};
+  const c3={id:'c3',demo:1,name:'Platte Valley Farms',phone:'(402) 555-0190',email:'',address:'Rural Route 2',taxExempt:true,notes:'Farm account, tax exempt.'};
+  const v1={id:'v1',demo:1,customerId:'c1',vin:'1HGCM82633A004352',year:'2003',make:'Honda',model:'Accord',trim:'EX',plate:'ABC 123',reminders:[]};
+  const v2={id:'v2',demo:1,customerId:'c2',vin:'2C4RC1BG1RR204761',year:'2024',make:'Chrysler',model:'Pacifica',trim:'',plate:'',reminders:[]};
+  const v3={id:'v3',demo:1,customerId:'c3',vin:'1FTFW1ET9DFC10312',year:'2013',make:'Ford',model:'F-150',trim:'',plate:'FARM 7',reminders:[]};
+  S.customers.push(c1,c2,c3);S.vehicles.push(v1,v2,v3);
+  S.parts.push(
+    {id:'p1',demo:1,number:'41-993',desc:'Ceramic brake pads, front',brand:'Sample',supplier:'Sample supplier',cost:'32.10',price:'44.94',upc:'',uses:1,last:ago(0)},
+    {id:'p2',demo:1,number:'57060',desc:'Oil filter',brand:'Sample',supplier:'Sample supplier',cost:'3.50',price:'4.90',upc:'',uses:1,last:ago(80)},
+    {id:'p3',demo:1,number:'5W30-5QT',desc:'Full synthetic 5W-30, 5 qt',brand:'Sample',supplier:'Sample supplier',cost:'22.00',price:'30.80',upc:'',uses:1,last:ago(80)});
+  const insp={items:{},done:false};
+  const items=parseChecklist(S.settings.checklistText);
+  const rate={[items[0]&&items[0].id]:['bad','Pads worn to metal, rotors scored'],[items[1]&&items[1].id]:['ok',''],[items[5]&&items[5].id]:['watch','Front tires about 5/32']};
+  for(const k in rate)if(k&&k!=='undefined')insp.items[k]={r:rate[k][0],note:rate[k][1]};
+  S.jobs.push(
+   {id:'j1',demo:1,no:1001,customerId:'c1',vehicleId:'v1',status:'open',created:ago(0)+'T08:30',createdBy:'s1',mileageIn:'142310',
+    concern:'Grinding noise from the front brakes when stopping.',notes:'Customer says it started last week.',invNotes:'',assigned:['s2'],
+    labor:[{id:'l1',desc:'Replace front brake pads, resurface rotors',hours:'1.5',rate:'100',by:'s2',date:ago(0)}],
+    parts:[{id:'q1',partId:'p1',number:'41-993',desc:'Ceramic brake pads, front',qty:'1',cost:'32.10',price:'44.94'}],
+    inspection:insp,estimate:{status:'none'},invoice:{}},
+   {id:'j2',demo:1,no:1002,customerId:'c2',vehicleId:'v2',status:'upcoming',created:ago(1)+'T14:10',createdBy:'s1',mileageIn:'18420',
+    concern:'Check engine light is on.',notes:'',invNotes:'',assigned:['s3'],
+    labor:[{id:'l2',desc:'Diagnose check engine light',hours:'1',rate:'100',by:'s3',date:ago(1)}],parts:[],
+    inspection:{items:{},done:false},estimate:{status:'none'},invoice:{}},
+   {id:'j3',demo:1,no:1000,customerId:'c3',vehicleId:'v3',status:'paid',created:ago(80)+'T10:00',createdBy:'s1',mileageIn:'98210',
+    concern:'Oil change and tire rotation.',notes:'',invNotes:'Rotated tires, 35 psi all around.',assigned:['s4'],
+    labor:[{id:'l3',desc:'Oil change and tire rotation',hours:'0.8',rate:'100',by:'s4',date:ago(80)}],
+    parts:[{id:'q2',partId:'p3',number:'5W30-5QT',desc:'Full synthetic 5W-30, 5 qt',qty:'1',cost:'22.00',price:'30.80'},{id:'q3',partId:'p2',number:'57060',desc:'Oil filter',qty:'1',cost:'3.50',price:'4.90'}],
+    inspection:{items:{},done:false},estimate:{status:'none'},invoice:{no:1000,date:ago(80),paid:true,paidDate:ago(80),method:'Check'}});
+  S.needs.push({id:'n1',demo:1,text:'Brake cleaner, case',qty:'1',cat:'Shop supplies',by:'s2',at:ago(1),done:false},
+    {id:'n2',demo:1,text:'5W-30 oil, drum',qty:'1',cat:'Fluids',by:'s3',at:ago(0),done:false});
+  S.nextJob=1003;S.nextEst=1003;S.nextInv=1001;S.demo=true;
+}
+function clearDemo(){
+  const jobs=new Set(S.jobs.filter(j=>j.demo).map(j=>j.id));
+  for(const p of P.filter(p=>jobs.has(p.jobId)))idbDel(p.id);P=P.filter(p=>!jobs.has(p.jobId));
+  for(const k of ['customers','vehicles','jobs','parts','needs'])S[k]=S[k].filter(x=>!x.demo);
+  S.demo=false;persistNow();
+}
+
+/* ---------- camera scanning: VIN, odometer, part box ---------- */
+const TESS_URL='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+const ZX_URL='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+let tessWorker=null,tessWL='';
+const SC={kind:null,cb:null,canvas:null,region:null,busy:false,cands:[],msg:'',pct:0,note:'',raw:'',drag:null};
+const SCAN_TITLE={vin:'Scan VIN',odo:'Scan odometer',part:'Scan part box'};
+const SCAN_HINT={vin:'Photograph the VIN on the windshield (lower driver side) or the door post sticker. Fill the frame with just the VIN and avoid glare.',
+ odo:'Photograph the odometer display with the ignition on. Fill the frame with the digits.',
+ part:'Photograph the label on the part box that shows the part number. Barcodes are read too.'};
+
+function startScan(kind,cb){Object.assign(SC,{kind,cb,canvas:null,region:null,busy:false,cands:[],msg:'',pct:0,note:'',raw:''});drawScan()}
+function closeScan(){const s=$('#scan');s.className='';s.innerHTML='';document.body.style.overflow=stack.length?'hidden':''}
+function drawScan(){
+  const s=$('#scan');s.className='on';document.body.style.overflow='hidden';
+  const has=!!SC.canvas;
+  s.innerHTML=`<div class="shade" data-act="scanClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${SCAN_TITLE[SC.kind]}">
+   <div class="sheet-h"><button class="btn sm" data-act="scanClose">Close</button><h2>${SCAN_TITLE[SC.kind]}</h2></div>
+   <div class="sheet-b">
+    <p class="sub">${SCAN_HINT[SC.kind]}</p>
+    <div class="btnrow"><label class="btn pri" style="text-align:center;cursor:pointer">${has?'Retake photo':'Take photo'}<input id="scanFile" type="file" accept="image/*" capture="environment" hidden></label>
+     <label class="btn" style="text-align:center;cursor:pointer">Choose from library<input id="scanFile2" type="file" accept="image/*" hidden></label></div>
+    ${has?`<div class="shot" id="shot"></div><div class="sub">Drag on the photo to box just the text, then read again. <button class="linkbtn" data-act="scanClear">Use whole photo</button></div>
+     <div class="btnrow"><button class="btn" data-act="scanRot" data-d="-90">Turn left</button><button class="btn" data-act="scanRot" data-d="90">Turn right</button><button class="btn pri" data-act="scanRead" ${SC.busy?'disabled':''}>Read again</button></div>`:''}
+    ${SC.busy?`<div class="bar"><i style="width:${SC.pct}%"></i></div>`:''}
+    <div id="scanMsg" class="sub" role="status" aria-live="polite">${esc(SC.msg)}</div>
+    ${SC.cands.length?`<div class="sec"><h3>Pick the correct one</h3>${SC.cands.map((c,i)=>`<button class="cand" data-act="scanPick" data-i="${i}"><b>${esc(c.label)}</b><span class="sub">${esc(c.note||'')}</span></button>`).join('')}</div>`:''}
+    ${SC.kind==='vin'?'<div class="sec"><label class="field"><span>Or type it</span><input id="scanType" type="text" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="17 character VIN"></label><button class="btn" data-act="scanTyped">Use this VIN</button></div>':''}
+    ${SC.kind==='odo'?'<div class="sec"><label class="field"><span>Or type it</span><input id="scanType" type="number" inputmode="numeric" placeholder="Miles"></label><button class="btn" data-act="scanTyped">Use this reading</button></div>':''}
+    ${SC.kind==='part'?'<div class="sec"><label class="field"><span>Or type it</span><input id="scanType" type="text" autocapitalize="characters" autocomplete="off" placeholder="Part number"></label><button class="btn" data-act="scanTyped">Use this number</button></div>':''}
+   </div></div>`;
+  const sh=$('#shot');if(sh&&SC.canvas){sh.appendChild(showCanvas());}
+  for(const id of ['scanFile','scanFile2']){const f=$('#'+id);if(f)f.onchange=async e=>{const file=e.target.files[0];if(file)await loadScanFile(file)}}
+}
+function showCanvas(){
+  const c=document.createElement('canvas'),src=SC.canvas,k=Math.min(1,900/src.width);
+  c.width=Math.round(src.width*k);c.height=Math.round(src.height*k);
+  const g=c.getContext('2d');
+  const draw=()=>{g.drawImage(src,0,0,c.width,c.height);
+    if(SC.region){const r=SC.region;g.strokeStyle='#ffb000';g.lineWidth=3;g.fillStyle='#ffb00033';
+      const x=r.x*c.width,y=r.y*c.height,w=r.w*c.width,h=r.h*c.height;g.fillRect(x,y,w,h);g.strokeRect(x,y,w,h)}};
+  draw();
+  const pos=e=>{const b=c.getBoundingClientRect();return{x:Math.min(1,Math.max(0,(e.clientX-b.left)/b.width)),y:Math.min(1,Math.max(0,(e.clientY-b.top)/b.height))}};
+  c.onpointerdown=e=>{SC.drag=pos(e);c.setPointerCapture(e.pointerId)};
+  c.onpointermove=e=>{if(!SC.drag)return;const p=pos(e),a=SC.drag;
+    SC.region={x:Math.min(a.x,p.x),y:Math.min(a.y,p.y),w:Math.abs(p.x-a.x),h:Math.abs(p.y-a.y)};draw()};
+  c.onpointerup=()=>{SC.drag=null;if(SC.region&&(SC.region.w<.03||SC.region.h<.03)){SC.region=null;draw()}};
+  return c;
+}
+async function loadScanFile(file){
+  SC.msg='Opening photo...';SC.cands=[];SC.region=null;drawScan();
+  try{SC.canvas=await fileToCanvas(file,2400)}catch(e){SC.msg=e.message;drawScan();return}
+  SC.msg='';drawScan();await runScan();
+}
+function rotateCanvas(c,deg){
+  const o=document.createElement('canvas'),q=((deg%360)+360)%360,sw=q===90||q===270;
+  o.width=sw?c.height:c.width;o.height=sw?c.width:c.height;const g=o.getContext('2d');
+  g.translate(o.width/2,o.height/2);g.rotate(deg*Math.PI/180);g.drawImage(c,-c.width/2,-c.height/2);return o;
+}
+ACT.scanClose=()=>closeScan();
+ACT.scanClear=()=>{SC.region=null;drawScan()};
+ACT.scanRot=b=>{if(!SC.canvas)return;SC.canvas=rotateCanvas(SC.canvas,+b.dataset.d);SC.region=null;drawScan()};
+ACT.scanRead=()=>runScan();
+ACT.scanPick=b=>{const c=SC.cands[+b.dataset.i];const cb=SC.cb;closeScan();if(cb)cb(c.value,c)};
+ACT.scanTyped=()=>{
+  const el=$('#scanType'),v=el.value.trim();if(!v)return;
+  let out=v;
+  if(SC.kind==='vin'){out=cleanVin(v);if(out.length!==17){SC.msg='A VIN has 17 characters. This has '+out.length+'.';drawScan();return}}
+  if(SC.kind==='odo'){out=String(Math.round(num(v)))}
+  if(SC.kind==='part'){out=v.toUpperCase()}
+  const cb=SC.cb;closeScan();if(cb)cb(out,{value:out,typed:true});
+};
+
+/* ----- image preprocessing (tuned on real VIN photos; see the scanner test page) ----- */
+function prep(src,region,mode,rot,o){
+  rot=rot||0;o=o||{};
+  const r=region?{x:Math.round(region.x*src.width),y:Math.round(region.y*src.height),w:Math.max(8,Math.round(region.w*src.width)),h:Math.max(8,Math.round(region.h*src.height))}:{x:0,y:0,w:src.width,h:src.height};
+  const long=Math.max(r.w,r.h),scale=Math.min(4,(o.size||1200)/long);
+  const uw=Math.max(1,Math.round(r.w*scale)),uh=Math.max(1,Math.round(r.h*scale)),swap=Math.abs(rot)===90;
+  const fw=swap?uh:uw,h=swap?uw:uh,w=Math.max(8,Math.round(fw*(1-2*(o.trim||0))));
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const g=c.getContext('2d',{willReadFrequently:true});g.imageSmoothingQuality='high';
+  g.save();g.translate(w/2,h/2);g.rotate(rot*Math.PI/180);g.drawImage(src,r.x,r.y,r.w,r.h,-uw/2,-uh/2,uw,uh);g.restore();
+  const im=g.getImageData(0,0,w,h),d=im.data,n=w*h,gray=new Uint8ClampedArray(n),hist=new Uint32Array(256);
+  for(let i=0,p=0;i<n;i++,p+=4){const v=(d[p]*299+d[p+1]*587+d[p+2]*114)/1000|0;gray[i]=v;hist[v]++}
+  let lo=0,hi=255,acc=0;while(lo<255&&(acc+=hist[lo])<n*.02)lo++;acc=0;while(hi>0&&(acc+=hist[hi])<n*.02)hi--;
+  const span=Math.max(1,hi-lo);for(let i=0;i<n;i++)gray[i]=(gray[i]-lo)*255/span;
+  let out=gray;
+  if(mode==='invert')out=gray.map(v=>255-v);
+  if(mode==='adaptive')out=adaptiveT(gray,w,h);
+  if(mode==='sharp')out=boxSharpen(gray,w,h);
+  for(let i=0,p=0;i<n;i++,p+=4){const v=out[i];d[p]=d[p+1]=d[p+2]=v;d[p+3]=255}
+  g.putImageData(im,0,0);
+  /* margin in the border colour: the OCR engine misreads characters that touch the edge */
+  let ring=0,cnt=0;
+  for(let x=0;x<w;x++){ring+=out[x]+out[(h-1)*w+x];cnt+=2}
+  for(let y=0;y<h;y++){ring+=out[y*w]+out[y*w+w-1];cnt+=2}
+  const fill=Math.round(ring/cnt),pad=Math.max(20,Math.round(Math.min(w,h)*.2));
+  const pc=document.createElement('canvas');pc.width=w+2*pad;pc.height=h+2*pad;
+  const pg=pc.getContext('2d');pg.fillStyle='rgb('+fill+','+fill+','+fill+')';pg.fillRect(0,0,pc.width,pc.height);pg.drawImage(c,pad,pad);
+  return pc;
+}
+function boxSharpen(gray,w,h){
+  const out=new Uint8ClampedArray(w*h);
+  for(let y=0;y<h;y++){const y0=Math.max(0,y-2),y1=Math.min(h-1,y+2);
+    for(let x=0;x<w;x++){const x0=Math.max(0,x-2),x1=Math.min(w-1,x+2);let s=0;
+      for(let yy=y0;yy<=y1;yy++)for(let xx=x0;xx<=x1;xx++)s+=gray[yy*w+xx];
+      const m=s/((x1-x0+1)*(y1-y0+1));out[y*w+x]=gray[y*w+x]+2*(gray[y*w+x]-m)}}
+  return out;
+}
+function adaptiveT(gray,w,h){
+  const r=Math.max(8,Math.round(Math.max(w,h)/30)),W=w+1,I=new Uint32Array(W*(h+1));
+  for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=gray[y*w+x];I[(y+1)*W+x+1]=I[y*W+x+1]+row}}
+  const out=new Uint8ClampedArray(w*h);
+  for(let y=0;y<h;y++){const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+    for(let x=0;x<w;x++){const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1),area=(x1-x0)*(y1-y0),sum=I[y1*W+x1]-I[y0*W+x1]-I[y1*W+x0]+I[y0*W+x0];
+      out[y*w+x]=gray[y*w+x]*area<sum*.92?0:255}}
+  return out;
+}
+
+/* ----- OCR engine ----- */
+async function getWorker(whitelist,psm){
+  if(!window.Tesseract)await loadScript(TESS_URL);
+  if(!tessWorker){tessWorker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text'&&SC.busy){const b=document.querySelector('#scan .bar i');if(b)b.style.width=Math.round(SC.pct+(100-SC.pct)*m.progress*.0)+'%'}}})}
+  if(tessWL!==whitelist+'|'+psm){await tessWorker.setParameters({tessedit_char_whitelist:whitelist,tessedit_pageseg_mode:String(psm)});tessWL=whitelist+'|'+psm}
+  return tessWorker;
+}
+async function ocr(canvas,whitelist,psm){const w=await getWorker(whitelist,psm);const r=await w.recognize(canvas);return r.data.text||''}
+
+/* ----- barcodes ----- */
+async function readBarcodes(canvas){
+  const found=[];
+  try{if('BarcodeDetector' in window){const bd=new BarcodeDetector();const r=await bd.detect(canvas);r.forEach(x=>found.push(x.rawValue))}}catch(e){}
+  if(found.length)return found;
+  try{
+    if(!window.ZXing)await loadScript(ZX_URL);
+    const hints=new Map();hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
+    const reader=new ZXing.MultiFormatReader();reader.setHints(hints);
+    for(const rot of [0,90]){
+      const c=rot?rotateCanvas(canvas,rot):canvas,k=Math.min(1,1600/Math.max(c.width,c.height)),s=document.createElement('canvas');
+      s.width=Math.round(c.width*k);s.height=Math.round(c.height*k);s.getContext('2d').drawImage(c,0,0,s.width,s.height);
+      try{const src=new ZXing.HTMLCanvasElementLuminanceSource(s),bmp=new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(src));
+        found.push(reader.decode(bmp).getText());break}catch(e){}
+    }
+  }catch(e){}
+  return found;
+}
+
+/* ----- run ----- */
+function setProg(p,msg){SC.pct=p;if(msg!=null)SC.msg=msg;const b=document.querySelector('#scan .bar i'),m=$('#scanMsg');if(b)b.style.width=p+'%';if(m&&msg!=null)m.textContent=msg}
+async function runScan(){
+  if(!SC.canvas||SC.busy)return;
+  SC.busy=true;SC.cands=[];SC.msg='Reading...';SC.pct=3;drawScan();
+  const kind=SC.kind;
+  try{
+    let cands=[];
+    const region=SC.region;
+    const regionCanvas=()=>{if(!region)return SC.canvas;return prep(SC.canvas,region,'plain',0,{size:Math.min(1800,Math.max(SC.canvas.width,SC.canvas.height)),trim:0})};
+    if(kind!=='odo'){
+      setProg(6,'Looking for a barcode...');
+      const codes=await readBarcodes(regionCanvas());
+      for(const t of codes){
+        if(kind==='vin'){const v=vinFromBarcode(t);if(v)cands.push({value:v,label:v,note:(checkDigitOK(v)?'Barcode, check digit OK':'Barcode'),score:100})}
+        else{const n=String(t).trim();if(n)cands.push({value:n,label:n,note:'Barcode on box',score:60,kind:/^\d{11,14}$/.test(n)?'upc':'part'})}
+      }
+      if(kind==='vin'&&cands.length){finishScan(cands);return}
+    }
+    const asp=region?(region.h*SC.canvas.height)/(region.w*SC.canvas.width):SC.canvas.height/SC.canvas.width;
+    if(kind==='vin')cands=cands.concat(await scanVin(region,asp));
+    else if(kind==='odo')cands=await scanOdo(region);
+    else cands=cands.concat(await scanPart(region));
+    finishScan(cands);
+  }catch(e){SC.busy=false;SC.msg='Reading failed: '+(e&&e.message||e)+' The reader needs internet the first time. You can type it instead.';drawScan()}
+}
+function finishScan(cands){
+  SC.busy=false;SC.pct=0;
+  const seen=new Set();SC.cands=cands.filter(c=>!seen.has(c.value)&&seen.add(c.value)).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,6);
+  SC.msg=SC.cands.length?'Tap the correct reading. If none are right, box the text and read again, or type it.':'Nothing readable found. Get closer, avoid glare, box just the text, or turn the photo.';
+  drawScan();
+}
+async function scanVin(region,asp){
+  const rots=asp>1.6?[-90,90,0]:[0,-90,90];
+  const BASE=[{mode:'plain',size:1200,trim:.04,psm:7},{mode:'sharp',size:1200,trim:.04,psm:11},{mode:'plain',size:800,trim:.04,psm:11},
+    {mode:'sharp',size:800,trim:0,psm:11},{mode:'adaptive',size:1200,trim:.04,psm:11},{mode:'invert',size:1200,trim:.04,psm:7}];
+  const list=[];rots.forEach((rot,i)=>{for(const p of (i===0?BASE:BASE.slice(0,2)))list.push({...p,rot,psm:(!region&&p.psm===7)?11:p.psm})});
+  const wl='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const votes=new Map();let partial='',texts=[];
+  const vote=(vin,note)=>{const c=votes.get(vin);if(c)c.n++;else votes.set(vin,{n:1,note})};
+  for(let i=0;i<list.length;i++){
+    const p=list[i];setProg(8+Math.round(i/list.length*90),'Reading VIN... pass '+(i+1)+' of '+list.length);
+    const c=prep(SC.canvas,region,p.mode,p.rot,{size:p.size,trim:p.trim});
+    for(const psm of [p.psm]){
+      const txt=await ocr(c,wl,psm);texts.push(txt);
+      const cs=candidatesFromText(txt);
+      const ok=cs.filter(x=>x.valid&&plausible(x.vin));
+      if(ok.length)return ok.map(x=>({value:x.vin,label:x.vin,note:'Check digit OK',score:90}));
+      for(const x of cs)for(const r of repairs(x.vin))vote(r.vin,'Fixed '+r.from+' to '+r.to+', check digit OK');
+      const pf=partialFromText(txt);if(pf.length>partial.length)partial=pf;
+    }
+    if([...votes.values()].some(v=>v.n>=2))break;
+  }
+  /* a single-character repair can pass the check digit by luck (about 1 in 11), so only repairs seen more than once are trusted */
+  const rep=[...votes.entries()].sort((a,b)=>b[1].n-a[1].n);
+  const out=rep.filter(([,v])=>v.n>=2).slice(0,3).map(([vin,v])=>({value:vin,label:vin,note:v.note,score:70}));
+  if(!out.length){
+    const all=texts.flatMap(t=>candidatesFromText(t)).filter(x=>x.vin);
+    if(rep.length)out.push({value:rep[0][0],label:rep[0][0],note:'Unsure. Verify each character.',score:30});
+    else if(all.length)out.push({value:all[0].vin,label:all[0].vin,note:'Check digit failed. Verify each character.',score:30});
+    else if(partial)out.push({value:partial,label:partial,note:'Partial read ('+partial.length+' of 17)',score:10,partial:true});}
+  return out;
+}
+async function scanOdo(region){
+  const found=new Map();
+  const modes=[['plain',0],['sharp',0],['adaptive',0],['invert',0]];
+  for(let i=0;i<modes.length;i++){
+    setProg(8+Math.round(i/modes.length*90),'Reading odometer...');
+    const c=prep(SC.canvas,region,modes[i][0],0,{size:900,trim:0});
+    const txt=await ocr(c,'0123456789,. ',11);
+    for(const x of odoCandidates(txt)){const cur=found.get(x.miles);if(cur)cur.score+=x.score;else found.set(x.miles,{...x})}
+    const top=[...found.values()].sort((a,b)=>b.score-a.score)[0];if(top&&top.score>=6)break;
+  }
+  return [...found.values()].filter(x=>x.miles>=100).map(x=>({value:String(x.miles),label:fmtNum(x.miles)+' mi',note:x.score>=6?'Seen more than once':'',score:x.score}));
+}
+async function scanPart(region){
+  const out=new Map();
+  const variants=[['plain',6],['sharp',6],['plain',11],['sharp',11]];
+  for(let i=0;i<variants.length;i++){
+    setProg(20+Math.round(i/variants.length*75),'Reading label...');
+    const c=prep(SC.canvas,region,variants[i][0],0,{size:1600,trim:0});
+    const txt=await ocr(c,'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-./:#$ ',variants[i][1]);
+    for(const x of partCandidates(txt)){const cur=out.get(x.norm);if(cur)cur.score+=x.score;else out.set(x.norm,{...x})}
+  }
+  return [...out.values()].map(x=>({value:x.text,label:x.text,note:x.kind==='upc'?'Barcode number (UPC)':(x.score>=12?'Looks like a part number':''),score:x.score+(x.kind==='upc'?-2:0),kind:x.kind}));
+}
+
+/* ---------- small form helpers ---------- */
+const fld=(label,inner,cls)=>`<label class="field ${cls||''}"><span>${label}</span>${inner}</label>`;
+function inp(m,f,val,o){o=o||{};
+  return `<input type="${o.type||'text'}" data-m="${m}" data-f="${f}" value="${esc(val)}"${o.ph?` placeholder="${esc(o.ph)}"`:''}${o.live?' data-live="1"':''}${o.redraw?' data-redraw="1"':''}${o.fmt?` data-fmt="${o.fmt}"`:''}${o.mode?` inputmode="${o.mode}"`:''}${o.cap?' autocapitalize="characters"':''}${o.max?` maxlength="${o.max}"`:''} autocomplete="off">`}
+const area=(m,f,val,ph)=>`<textarea data-m="${m}" data-f="${f}" placeholder="${esc(ph||'')}">${esc(val)}</textarea>`;
+function hoursSel(m,val){
+  const opts=[];for(let q=1;q<=64;q++)opts.push(q/4);
+  const cur=String(val==null?'':val).trim(),has=cur&&opts.some(o=>String(o)===cur||o===num(cur));
+  const lbl=h=>{const w=Math.floor(h),f=h-w,fr={0:'',0.25:'1/4',0.5:'1/2',0.75:'3/4'}[f];return (w?w+(fr?' ':''):'')+(fr||'')+(h<=1?' hr':' hrs')};
+  return `<select data-m="${m}" data-f="hours" data-live="1" aria-label="Hours">${cur?'':'<option value="" selected>Select</option>'}${cur&&!has?`<option value="${esc(cur)}" selected>${esc(cur)} hrs</option>`:''}${opts.map(o=>`<option value="${o}" ${cur&&num(cur)===o?'selected':''}>${lbl(o)}</option>`).join('')}</select>`;
+}
+const nowStamp=()=>{const d=new Date();return today()+'T'+pad(d.getHours())+':'+pad(d.getMinutes())};
+const ICON={cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6M18 14v6M15 17h6"/></svg>'};
+
+async function decodeVin(vin){
+  try{const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),8000);
+    const r=await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/'+encodeURIComponent(vin)+'?format=json',{signal:ctl.signal});clearTimeout(t);
+    const x=(await r.json()).Results[0];if(!x||!x.Make)return null;
+    const tc=s=>String(s||'').length<=3?String(s||''):String(s).toLowerCase().replace(/\b[a-z]/g,m=>m.toUpperCase());
+    return{year:x.ModelYear||'',make:tc(x.Make),model:x.Model||'',trim:x.Trim||x.Series||''};
+  }catch(e){return null}
+}
+const findCustomers=q=>{
+  q=String(q||'').trim().toLowerCase();const qd=q.replace(/\D/g,'');
+  return S.customers.filter(c=>{if(!q)return true;
+    if(c.name.toLowerCase().includes(q))return true;if(qd.length>=3&&String(c.phone).replace(/\D/g,'').includes(qd))return true;
+    return S.vehicles.some(v=>v.customerId===c.id&&[v.plate,v.vin,v.make,v.model].join(' ').toLowerCase().includes(q))}).sort((a,b)=>a.name.localeCompare(b.name));
+};
+
+/* ---------- New job ---------- */
+let NJ={};
+ACT.newJob=()=>{if(!me())return signIn();NJ={};stack.length=0;sheet(njHome)};
+function njHome(){return shHead('New job')+`<div class="sheet-b">
+ <button class="bigbtn" data-act="njScan">${ICON.cam}<div><b>Scan a VIN</b><span class="sub">Photo of the windshield or door post</span></div></button>
+ <div class="card sec"><label class="field"><span>Or type a VIN</span><input id="njVin" type="text" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="17 character VIN" data-fmt="vin"></label>
+  <button class="btn pri" data-act="njTypeVin" data-src="njVin">Start job</button></div>
+ <button class="bigbtn" data-act="njCust">${ICON.user}<div><b>Existing customer</b><span class="sub">Pick one of their vehicles or add a new VIN</span></div></button>
+ <button class="bigbtn" data-act="njNewCust">${ICON.plus}<div><b>New customer</b><span class="sub">Add them first, then the vehicle</span></div></button></div>`}
+ACT.njScan=()=>startScan('vin',afterVin);
+ACT.njTypeVin=b=>{const v=cleanVin(($('#'+b.dataset.src)||{}).value);if(v.length!==17){toast('A VIN has 17 characters. This has '+v.length+'.');return}afterVin(v)};
+function afterVin(vin){
+  NJ.vin=vin;const v=S.vehicles.find(x=>x.vin===vin);
+  if(v){
+    if(NJ.mode==='vehicleOnly'){toast('That VIN is already on file for '+(cust(v.customerId)||{}).name);return}
+    if(NJ.customerId&&NJ.customerId!==v.customerId)toast('That VIN is already on '+(cust(v.customerId)||{}).name+"'s account. Using it.");
+    return makeJob(v.id)}
+  Object.assign(NJ,{year:'',make:'',model:'',trim:'',plate:''});
+  sheet(njVehicleForm);
+  decodeVin(vin).then(d=>{if(!d||NJ.vin!==vin)return;for(const k of ['year','make','model','trim'])if(!NJ[k])NJ[k]=d[k];if(stack.length)drawSheet(true);else {}});
+}
+function njVehicleForm(){
+  const vo=NJ.mode==='vehicleOnly';
+  return shHead('New vehicle')+`<div class="sheet-b">
+  ${fld('VIN',inp('nj','vin',NJ.vin||'',{fmt:'vin',max:17,cap:1}))}
+  <button class="linkbtn" data-act="njRedecode">Look up year, make and model from VIN</button>
+  <div class="g2">${fld('Year',inp('nj','year',NJ.year,{mode:'numeric',max:4}))}${fld('Make',inp('nj','make',NJ.make))}</div>
+  <div class="g2">${fld('Model',inp('nj','model',NJ.model))}${fld('Trim',inp('nj','trim',NJ.trim))}</div>
+  ${fld('Plate',inp('nj','plate',NJ.plate,{cap:1}))}
+  ${NJ.lockCust?`<div class="card"><b>${esc((cust(NJ.customerId)||{}).name)}</b></div>`:
+   fld('Customer',`<select data-m="nj" data-f="customerId" data-redraw="1"><option value="">New customer...</option>${S.customers.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`<option value="${c.id}" ${NJ.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`)}
+  ${!NJ.customerId?`<div class="g2">${fld('Customer name',inp('nj','cname',NJ.cname||''))}${fld('Phone',inp('nj','cphone',NJ.cphone||'',{type:'tel',fmt:'phone'}))}</div>`:''}
+  <button class="btn pri" data-act="njSave">${vo?'Save vehicle':'Save and start job'}</button></div>`}
+ACT.njRedecode=async()=>{const d=await decodeVin(NJ.vin);if(!d){toast('Could not look that up. Fill it in by hand.');return}Object.assign(NJ,d);refresh()};
+ACT.njSave=()=>{
+  if(!NJ.vin){toast('Enter the VIN first');return}
+  let cid=NJ.customerId;
+  if(!cid){if(!String(NJ.cname||'').trim()){toast('Enter the customer name');return}
+    const c={id:uid(),name:NJ.cname.trim(),phone:NJ.cphone||'',email:'',address:'',taxExempt:false,notes:''};S.customers.push(c);cid=c.id}
+  const v={id:uid(),customerId:cid,vin:NJ.vin,year:NJ.year||'',make:NJ.make||'',model:NJ.model||'',trim:NJ.trim||'',plate:NJ.plate||'',reminders:[]};
+  S.vehicles.push(v);persistNow();
+  if(NJ.mode==='vehicleOnly'){const back=NJ.afterSave;stack.length=0;drawSheet();render();toast('Vehicle added');if(back)back(v.id);return}
+  makeJob(v.id);
+};
+ACT.njCust=()=>sheet(()=>shHead('Choose customer')+`<div class="sheet-b"><input id="njQ" type="search" placeholder="Search name, phone, plate or VIN" oninput="njFilter()" autocomplete="off"><div id="njList" class="sec">${njList('')}</div></div>`);
+function njList(q){const l=findCustomers(q);
+  return l.length?l.map(c=>`<button class="cand" data-act="njPickCust" data-id="${c.id}"><div><b>${esc(c.name)}</b><div class="sub">${esc(c.phone)} &middot; ${S.vehicles.filter(v=>v.customerId===c.id).length} vehicles</div></div></button>`).join(''):'<div class="empty">No match</div>'}
+function njFilter(){const e=$('#njList');if(e)e.innerHTML=njList($('#njQ').value)}
+ACT.njPickCust=b=>{NJ.customerId=b.dataset.id;NJ.lockCust=true;sheet(njVehiclesSheet)};
+function njVehiclesSheet(){
+  const c=cust(NJ.customerId),vs=S.vehicles.filter(v=>v.customerId===c.id);
+  return shHead(esc(c.name))+`<div class="sheet-b"><div class="sec"><h3>Pick a vehicle</h3>
+   ${vs.length?vs.map(v=>`<button class="cand" data-act="njPickVeh" data-id="${v.id}"><div><b style="font-family:var(--f-body)">${esc(vehTitle(v))}</b><div class="sub vin">${esc(v.vin)}${v.plate?' &middot; '+esc(v.plate):''}</div></div></button>`).join(''):'<div class="empty">No vehicles on file yet.</div>'}</div>
+   <div class="sec"><h3>Add a new vehicle</h3>
+    <button class="bigbtn" data-act="njScan2">${ICON.cam}<div><b>Scan the VIN</b></div></button>
+    <div class="card sec"><label class="field"><span>Or type a VIN</span><input id="njVin2" type="text" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false" data-fmt="vin"></label>
+    <button class="btn pri" data-act="njTypeVin" data-src="njVin2">Add vehicle and start job</button></div></div></div>`}
+ACT.njScan2=()=>startScan('vin',afterVin);
+ACT.njPickVeh=b=>makeJob(b.dataset.id);
+ACT.njNewCust=()=>sheet(()=>shHead('New customer')+`<div class="sheet-b">${fld('Name',inp('nj','cname',NJ.cname||''))}${fld('Phone',inp('nj','cphone',NJ.cphone||'',{type:'tel',fmt:'phone'}))}
+  <button class="btn pri" data-act="njMakeCust">Continue</button></div>`);
+ACT.njMakeCust=()=>{if(!String(NJ.cname||'').trim()){toast('Enter the name');return}
+  const c={id:uid(),name:NJ.cname.trim(),phone:NJ.cphone||'',email:'',address:'',taxExempt:false,notes:''};S.customers.push(c);persistNow();
+  NJ.customerId=c.id;NJ.lockCust=true;NJ.cname='';NJ.cphone='';sheet(njVehiclesSheet)};
+function makeJob(vid){
+  const v=veh(vid),m=me();
+  const j={id:uid(),no:S.nextJob++,customerId:v.customerId,vehicleId:vid,status:m&&m.role==='tech'?'open':'upcoming',created:nowStamp(),createdBy:m?m.id:'',mileageIn:'',
+    concern:'',notes:'',invNotes:'',assigned:m&&m.role==='tech'?[m.id]:[],labor:[],parts:[],inspection:{items:{},done:false},invoice:{}};
+  S.jobs.push(j);persistNow();stack.length=0;openJobSheet(j.id);render();toast('Job #'+j.no+' started');
+}
+
+/* ---------- Parts: form, lookup, add to job ---------- */
+let PF={};
+const findPart=s=>{const n=normPart(s);if(!n)return null;return S.parts.find(p=>normPart(p.number)===n||(p.upc&&normPart(p.upc)===n))||null};
+function partForm(){
+  if(num(PF.cost)>0&&!String(PF.price).trim())PF.price=String(priceFromCost(PF.cost,S.settings.partsMarkup));
+  const adm=isAdmin();
+  return shHead(PF.id?'Edit part':'New part')+`<div class="sheet-b">
+  <div class="btnrow"><button class="btn" data-act="pfScan">Scan box</button></div>
+  ${fld('Part number',inp('pf','number',PF.number||'',{cap:1}))}${fld('Description',inp('pf','desc',PF.desc||''))}
+  <div class="g2">${fld('Brand',inp('pf','brand',PF.brand||''))}${fld('Supplier',inp('pf','supplier',PF.supplier||''))}</div>
+  <div class="g2 price">${fld('Your cost',inp('pf','cost',PF.cost||'',{mode:'decimal',redraw:1}))}${fld('Customer price',inp('pf','price',PF.price||'',{mode:'decimal'}))}</div>
+  <button class="linkbtn price" data-act="pfCalc">Set price to cost + ${num(S.settings.partsMarkup)}%</button>
+  ${fld('Barcode (UPC)',inp('pf','upc',PF.upc||''))}
+  <button class="btn pri" data-act="pfSave">${PF.jobId?'Save and add to job':'Save part'}</button>
+  ${PF.id&&adm?'<button class="btn bad" data-act="pfDelete">Delete part</button>':''}</div>`}
+ACT.pfScan=()=>startScan('part',(v,c)=>{if(c&&c.kind==='upc')PF.upc=v;else PF.number=v;refresh()});
+ACT.pfCalc=()=>{if(num(PF.cost)>0){PF.price=String(priceFromCost(PF.cost,S.settings.partsMarkup));refresh()}};
+function addLineFromPart(jobId,p,qty){
+  const j=job(jobId);j.parts.push({id:uid(),partId:p.id,number:p.number,desc:p.desc,qty:String(qty||1),cost:p.cost||'',price:p.price||''});
+  p.uses=(p.uses||0)+1;p.last=today();persistNow();
+}
+ACT.pfSave=()=>{
+  if(!String(PF.number||'').trim()&&!String(PF.desc||'').trim()){toast('Enter a part number or description');return}
+  let p=PF.id?S.parts.find(x=>x.id===PF.id):findPart(PF.number);
+  const data={number:String(PF.number||'').trim(),desc:PF.desc||'',brand:PF.brand||'',supplier:PF.supplier||'',cost:PF.cost||'',price:PF.price||'',upc:PF.upc||''};
+  if(p)Object.assign(p,data);else{p={id:uid(),uses:0,last:'',...data};S.parts.push(p)}
+  if(PF.jobId)addLineFromPart(PF.jobId,p,1);
+  persistNow();popSheet();toast(PF.jobId?'Part added to job':'Part saved');
+};
+ACT.pfDelete=()=>{if(!confirm('Delete this part from the catalog?'))return;S.parts=S.parts.filter(x=>x.id!==PF.id);persistNow();popSheet()};
+ACT.editPart=b=>{const p=S.parts.find(x=>x.id===b.dataset.id);PF={...p};sheet(partForm)};
+ACT.newPart=()=>{PF={number:'',desc:'',brand:'',supplier:'',cost:'',price:'',upc:''};sheet(partForm)};
+ACT.addPart=b=>{
+  const jobId=b.dataset.id;
+  sheet(()=>shHead('Add part')+`<div class="sheet-b">
+   <button class="bigbtn" data-act="apScan" data-id="${jobId}">${ICON.cam}<div><b>Scan the part box</b><span class="sub">Reads the part number and barcode</span></div></button>
+   <div class="card sec"><label class="field"><span>Type a part number</span><input id="apNum" type="text" autocapitalize="characters" autocomplete="off"></label><button class="btn pri" data-act="apType" data-id="${jobId}">Find part</button></div>
+   <div class="sec"><h3>Or pick from your parts</h3><input id="apQ" type="search" placeholder="Search parts" oninput="apFilter('${jobId}')" autocomplete="off"><div id="apList" class="sec">${apList('',jobId)}</div></div></div>`);
+};
+function apList(q,jobId){q=q.trim().toLowerCase();
+  let l=S.parts.filter(p=>!q||[p.number,p.desc,p.brand].join(' ').toLowerCase().includes(q));
+  l=l.sort((a,b)=>String(b.last).localeCompare(String(a.last))).slice(0,25);
+  return l.length?l.map(p=>`<button class="cand" data-act="apPick" data-id="${p.id}" data-job="${jobId}"><div><b>${esc(p.number)}</b><div class="sub">${esc(p.desc)}</div></div><span class="price">${p.price?money(num(p.price)):''}</span></button>`).join(''):'<div class="empty">No parts yet. Scan a box to add the first one.</div>'}
+function apFilter(jobId){const e=$('#apList');if(e)e.innerHTML=apList($('#apQ').value,jobId)}
+function resolvePart(jobId,value,kind){
+  const p=findPart(value);stack.pop();
+  if(p){addLineFromPart(jobId,p,1);drawSheet();render();toast('Added '+p.number+(p.price&&canSeePrices()?' at '+money(num(p.price)):''));return}
+  PF={jobId,number:kind==='upc'?'':value,upc:kind==='upc'?value:'',desc:'',brand:'',supplier:'',cost:'',price:''};
+  sheet(partForm);toast('New part. Add the description and cost once and it is remembered.');
+}
+ACT.apScan=b=>startScan('part',(v,c)=>resolvePart(b.dataset.id,v,c&&c.kind));
+ACT.apType=b=>{const v=$('#apNum').value.trim();if(!v)return;resolvePart(b.dataset.id,v,'part')};
+ACT.apPick=b=>{const p=S.parts.find(x=>x.id===b.dataset.id);stack.pop();addLineFromPart(b.dataset.job,p,1);drawSheet();render();toast('Added '+p.number)};
+
+/* ---------- Job card ---------- */
+let curJob=null;
+function openJobSheet(id){curJob=id;liveFn=()=>{const e=$('#jt');const j=job(curJob);if(e&&j)e.innerHTML=totalsHtml(j)};sheet(()=>jobSheet(id))}
+ACT.openJob=b=>openJobSheet(b.dataset.id);
+function totalsHtml(j){const t=totalsOf(j);
+  return `<div>Labor <span>${money(t.labor)}</span></div><div>Parts <span>${money(t.parts)}</span></div><div>Tax <span>${money(t.tax)}</span></div><div class="grand">Total <span>${money(t.total)}</span></div>`}
+const photoBtns=(jobId,kind,ref,label)=>`<label class="btn sm" style="cursor:pointer">${label||'Take photo'}<input type="file" accept="image/*" capture="environment" hidden data-photo="${jobId}|${kind}|${ref||''}"></label><label class="btn sm" style="cursor:pointer">From library<input type="file" accept="image/*" multiple hidden data-photo="${jobId}|${kind}|${ref||''}"></label>`;
+const photoGrid=arr=>arr.length?`<div class="photos">${arr.map(p=>`<div class="ph"><img src="${p.data}" data-act="viewPhoto" data-id="${p.id}" alt="Job photo"><button data-act="delPhoto" data-id="${p.id}" aria-label="Delete photo">&times;</button></div>`).join('')}</div>`:'';
+document.addEventListener('change',async e=>{
+  const el=e.target;if(!el.dataset||!el.dataset.photo)return;
+  const [jid,kind,ref]=el.dataset.photo.split('|'),files=[...el.files];el.value='';
+  const n=await addPhotos(jid,files,kind,ref);if(n){toast(n+' photo'+(n>1?'s':'')+' added');refresh()}
+});
+ACT.viewPhoto=b=>{const p=P.find(x=>x.id===b.dataset.id);if(p)lightbox(p.data)};
+ACT.delPhoto=b=>{if(!confirm('Delete this photo?'))return;P=P.filter(x=>x.id!==b.dataset.id);idbDel(b.dataset.id);refresh()};
+
+function jobSheet(id){
+  const j=job(id);if(!j)return shHead('Job')+'<div class="sheet-b"><div class="empty">Job not found.</div></div>';
+  const c=jobCust(j),v=jobVeh(j),px=canSeePrices(),adm=isAdmin(),last=v?vehMiles(v.id):null;
+  const items=parseChecklist(S.settings.checklistText),ins=j.inspection.items;
+  const cnt={bad:0,watch:0,ok:0};for(const k in ins)if(cnt[ins[k].r]!=null)cnt[ins[k].r]++;
+  const inv=j.invoice||{};
+  const photos=photosOf(j.id,'photo');
+  return shHead('Job #'+j.no,`<span class="pill ${j.status}">${statusLabel(j.status)}</span>`)+`<div class="sheet-b">
+  <div class="card sec">
+    <div class="between"><div><div class="title-line">${esc(c?c.name:'')}</div><div class="sub">${c&&c.phone?`<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>`:''}${c&&c.taxExempt?' &middot; tax exempt':''}</div></div>
+     ${isTech()?'':`<button class="btn sm" data-act="openVeh" data-id="${v?v.id:''}">Vehicle</button>`}</div>
+    <div><b>${esc(vehTitle(v))}</b>${v&&v.trim?' '+esc(v.trim):''}<div class="vin">${esc(v?v.vin:'')}${v&&v.plate?' &middot; '+esc(v.plate):''}</div></div>
+  </div>
+  ${j.status==='upcoming'?`<div class="banner"><span>Upcoming job. Start it when you begin work.</span><button class="btn sm pri" data-act="setStatus" data-id="${j.id}" data-s="open">Start job</button></div>`:''}
+  ${!String(j.mileageIn).trim()?`<div class="banner"><span>Mileage not recorded yet.</span><button class="btn sm pri" data-act="scanOdo" data-id="${j.id}" data-f="mileageIn">Scan odometer</button></div>`:''}
+  <div class="sec">${fld('Mileage',inp('job:'+j.id,'mileageIn',j.mileageIn,{mode:'numeric'}))}<button class="btn sm" data-act="scanOdo" data-id="${j.id}" data-f="mileageIn">${ICON.cam.replace('<svg','<svg width="16" height="16"')} Scan odometer</button>${last&&last!==num(j.mileageIn)?`<div class="sub">Last on file: ${fmtNum(last)}</div>`:''}</div>
+  <div class="step" role="group" aria-label="Job status">${STATUS.filter(s=>!isTech()||['open','ready'].includes(s[0])).map(s=>`<button data-act="setStatus" data-id="${j.id}" data-s="${s[0]}" ${j.status===s[0]?'aria-current="true"':''}>${s[1]}</button>`).join('')}</div>
+  ${fld('Customer concern',area('job:'+j.id,'concern',j.concern,'What the customer says is wrong'))}
+  ${isTech()?'':`<div class="sec"><h3>Assigned</h3><div class="chips">${crew().map(s=>`<button class="chip" aria-pressed="${j.assigned.includes(s.id)}" data-act="toggleAssign" data-id="${j.id}" data-s="${s.id}">${esc(s.name)}</button>`).join('')}</div></div>`}
+
+  <div class="card sec"><h3>Labor <button class="btn sm" data-act="addLabor" data-id="${j.id}">+ Hours</button></h3>
+   ${j.labor.length?j.labor.map(l=>`<div class="line"><div class="l1">${l.desc?esc(l.desc):'Labor'}</div><button class="btn sm bad" data-act="delLabor" data-id="${j.id}" data-l="${l.id}" aria-label="Remove labor line">Remove</button>
+    <div class="ctl">${fld('Hours',hoursSel('lab:'+j.id+':'+l.id,l.hours))}${fld('Rate',inp('lab:'+j.id+':'+l.id,'rate',l.rate,{mode:'decimal',live:1}),'price')}<div class="price num">${money(num(l.hours)*num(l.rate))}</div></div></div>`).join(''):'<div class="sub">No hours yet. Tap + Hours.</div>'}</div>
+
+  <div class="card sec"><h3>Parts <button class="btn sm pri" data-act="addPart" data-id="${j.id}">+ Part (scan)</button></h3>
+   ${j.parts.length?j.parts.map(l=>`<div class="line"><div class="l1">${l.number?`<span class="vin">${esc(l.number)}</span> `:''}${inp('prt:'+j.id+':'+l.id,'desc',l.desc,{ph:'Description'})}</div><button class="btn sm bad" data-act="delPart" data-id="${j.id}" data-l="${l.id}" aria-label="Remove part">Remove</button>
+    <div class="ctl">${fld('Qty',inp('prt:'+j.id+':'+l.id,'qty',l.qty,{mode:'decimal',live:1}))}${fld('Price each',inp('prt:'+j.id+':'+l.id,'price',l.price,{mode:'decimal',live:1}),'price')}${adm?fld('Cost each',inp('prt:'+j.id+':'+l.id,'cost',l.cost,{mode:'decimal'}),'price'):''}<div class="price num">${money(num(l.qty)*num(l.price))}</div></div></div>`).join(''):'<div class="sub">No parts yet. Scan a part box to add one.</div>'}</div>
+
+  <div class="card sec price"><div class="totals" id="jt">${totalsHtml(j)}</div></div>
+
+  <div class="card sec"><h3>Inspection <button class="btn sm" data-act="openInsp" data-id="${j.id}">${Object.keys(ins).length?'Open':'Start'}</button></h3>
+   ${Object.keys(ins).length?`<div class="row"><span class="pill ok">${cnt.ok} OK</span><span class="pill watch">${cnt.watch} Watch</span><span class="pill bad">${cnt.bad} Bad</span>${j.inspection.done?'<span class="sub">Complete</span>':''}</div>`:'<div class="sub">Multi-point checklist with photos.</div>'}</div>
+
+  <div class="card sec"><h3>Photos ${''}</h3>${photoGrid(photos)}<div class="btnrow">${photoBtns(j.id,'photo','')}</div></div>
+
+  ${px?`   <div class="card sec"><h3>Invoice</h3>
+    <div class="row">${inv.no?`<span class="pill ${inv.paid?'paid':'invoiced'}">${inv.paid?'Paid '+fmtDate(inv.paidDate)+(inv.method?' ('+esc(inv.method)+')':''):'Invoice #'+inv.no+' unpaid'}</span>`:'<span class="sub">Not invoiced yet.</span>'}</div>
+    <div class="btnrow"><button class="btn pri" data-act="openDoc" data-id="${j.id}">${inv.no?'View invoice':'Create invoice'}</button></div></div>`:''}
+
+  <button class="btn" data-act="openHist" data-id="${j.id}">Previous work on this vehicle (${S.jobs.filter(x=>x.vehicleId===j.vehicleId&&x.id!==j.id).length})</button>
+  ${fld('Work done and notes',area('job:'+j.id,'notes',j.notes,'What was done, what you found'))}
+  ${adm?`<button class="btn bad" data-act="delJob" data-id="${j.id}">Delete job</button>`:''}
+  </div>`;
+}
+ACT.scanOdo=b=>{const j=job(b.dataset.id),f=b.dataset.f;startScan('odo',v=>{j[f]=v;persistNow();refresh();toast('Mileage '+fmtNum(v)+' saved')})};
+ACT.setStatus=b=>{
+  const j=job(b.dataset.id),s=b.dataset.s;
+  if((s==='invoiced'||s==='paid')&&(isTech()||!canSeePrices())){toast('Only the office can invoice');return}
+  j.status=s;
+  if((s==='invoiced'||s==='paid')&&!j.invoice.no){j.invoice.no=S.nextInv++;j.invoice.date=today()}
+  if(s==='paid'){j.invoice.paid=true;j.invoice.paidDate=today()}else if(s!=='paid'&&j.invoice.paid){j.invoice.paid=false;j.invoice.paidDate=''}
+  persistNow();refresh();
+};
+ACT.toggleAssign=b=>{const j=job(b.dataset.id),s=b.dataset.s,i=j.assigned.indexOf(s);if(i<0)j.assigned.push(s);else j.assigned.splice(i,1);persistNow();refresh()};
+ACT.addLabor=b=>{const j=job(b.dataset.id),m=me();j.labor.push({id:uid(),desc:'',hours:'',rate:String(S.settings.laborRate),by:m?m.id:'',date:today()});persistNow();refresh()};
+ACT.delLabor=b=>{const j=job(b.dataset.id);j.labor=j.labor.filter(l=>l.id!==b.dataset.l);persistNow();refresh()};
+ACT.delPart=b=>{const j=job(b.dataset.id);j.parts=j.parts.filter(l=>l.id!==b.dataset.l);persistNow();refresh()};
+ACT.delJob=b=>{if(!confirm('Delete this job and its photos? This cannot be undone.'))return;const id=b.dataset.id;
+  P.filter(p=>p.jobId===id).forEach(p=>idbDel(p.id));P=P.filter(p=>p.jobId!==id);S.jobs=S.jobs.filter(j=>j.id!==id);persistNow();stack.length=0;drawSheet();render()};
+
+/* ---------- Inspection ---------- */
+ACT.openInsp=b=>sheet(()=>inspSheet(b.dataset.id));
+function inspSheet(id){
+  const j=job(id),items=parseChecklist(S.settings.checklistText),ins=j.inspection.items;let g='',h='';
+  for(const it of items){
+    if(it.group!==g){g=it.group;h+=`<div class="igrp">${esc(g)}</div>`}
+    const r=(ins[it.id]||{}).r||'',ph=photosOf(id,'insp').filter(p=>p.refId===it.id);
+    h+=`<div class="irow"><div class="t">${esc(it.label)}</div>
+     <div class="seg3" role="group" aria-label="${esc(it.label)}">${[['ok','OK'],['watch','Watch'],['bad','Bad']].map(x=>`<button data-r="${x[0]}" aria-pressed="${r===x[0]}" data-act="inspSet" data-id="${id}" data-i="${it.id}" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>
+     ${r==='watch'||r==='bad'?`${inp('insp:'+id+':'+it.id,'note',(ins[it.id]||{}).note||'',{ph:'Note'})}<div class="btnrow">${photoBtns(id,'insp',it.id,'Photo')}<button class="btn sm" data-act="inspToLine" data-id="${id}" data-i="${it.id}">Add to job as labor</button></div>`:''}
+     ${photoGrid(ph)}</div>`;
+  }
+  return shHead('Inspection #'+j.no)+`<div class="sheet-b"><div class="btnrow"><button class="btn" data-act="inspAllOk" data-id="${id}">Mark unrated as OK</button><button class="btn pri" data-act="inspDone" data-id="${id}">${j.inspection.done?'Reopen':'Mark complete'}</button></div>${h}</div>`;
+}
+ACT.inspSet=b=>{const j=job(b.dataset.id),i=b.dataset.i,e=j.inspection.items[i]||(j.inspection.items[i]={r:'',note:''});e.r=e.r===b.dataset.v?'':b.dataset.v;persistNow();refresh()};
+ACT.inspAllOk=b=>{const j=job(b.dataset.id);for(const it of parseChecklist(S.settings.checklistText)){const e=j.inspection.items[it.id]||(j.inspection.items[it.id]={r:'',note:''});if(!e.r)e.r='ok'}persistNow();refresh()};
+ACT.inspDone=b=>{const j=job(b.dataset.id);j.inspection.done=!j.inspection.done;persistNow();refresh()};
+ACT.inspToLine=b=>{const j=job(b.dataset.id),it=parseChecklist(S.settings.checklistText).find(x=>x.id===b.dataset.i),e=j.inspection.items[it.id]||{};
+  j.labor.push({id:uid(),desc:it.label+(e.note?' - '+e.note:''),hours:'',rate:String(S.settings.laborRate),by:'',date:today()});persistNow();toast('Added to labor. Set the hours on the job.')};
+
+/* ---------- Invoice document ---------- */
+let DOC={};
+ACT.openDoc=b=>{
+  const j=job(b.dataset.id);
+  if(!j.invoice.no){j.invoice.no=S.nextInv++;j.invoice.date=today()}
+  persistNow();DOC={id:j.id};sheet(docSheet);render();
+};
+function docSheet(){
+  const j=job(DOC.id),c=jobCust(j),v=jobVeh(j),tot=totalsOf(j),st=S.settings,inv=j.invoice;
+  const rows=[...j.labor.filter(l=>l.desc||num(l.hours)).map(l=>`<tr><td>${esc(l.desc||'Labor')}</td><td class="r">${num(l.hours)} hr</td><td class="r">${money(num(l.rate))}</td><td class="r">${money(num(l.hours)*num(l.rate))}</td></tr>`),
+    ...j.parts.map(l=>`<tr><td>${l.number?`<span class="mono">${esc(l.number)}</span> `:''}${esc(l.desc)}</td><td class="r">${num(l.qty)}</td><td class="r">${money(num(l.price))}</td><td class="r">${money(num(l.qty)*num(l.price))}</td></tr>`)].join('');
+  return shHead('Invoice #'+inv.no)+`<div class="sheet-b">
+  <div class="paper">
+   <div class="meta" style="margin-top:0"><div><h1>${esc(st.shopName)}</h1><div>${esc(st.address)}${st.phone?'<br>'+esc(st.phone):''}</div></div>
+    <div style="text-align:right"><h1>INVOICE</h1><div class="mono">#${inv.no}</div><div>${fmtDate(inv.date)}</div></div></div>
+   <div class="meta"><div><b>Customer</b><br>${esc(c.name)}<br>${esc(c.phone)}${c.address?'<br>'+esc(c.address):''}</div>
+    <div><b>Vehicle</b><br>${esc(vehTitle(v))} ${esc(v.trim||'')}<br><span class="mono">${esc(v.vin)}</span>${v.plate?'<br>Plate '+esc(v.plate):''}${j.mileageIn?'<br>Mileage '+fmtNum(num(j.mileageIn)):''}</div></div>
+   ${j.concern?`<p><b>Concern:</b> ${esc(j.concern)}</p>`:''}
+   <table><thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${rows||'<tr><td colspan="4">No lines yet.</td></tr>'}</tbody></table>
+   <div class="totals" style="margin-top:12px"><div>Labor <span>${money(tot.labor)}</span></div><div>Parts <span>${money(tot.parts)}</span></div><div>Tax${c.taxExempt?' (exempt)':' '+num(st.taxRate)+'%'} <span>${money(tot.tax)}</span></div><div class="grand">${inv.paid?'Total paid':'Total due'} <span>${money(tot.total)}</span></div></div>
+   ${j.invNotes?`<p style="margin-top:12px">${esc(j.invNotes)}</p>`:''}
+   <p style="margin-top:14px;color:var(--paper-muted)">${esc(st.invNote)}</p>
+  </div>
+  <div class="noprint sec">
+   <div class="btnrow"><button class="btn" data-act="printDoc">Print or save PDF</button><button class="btn" data-act="copyDoc">Copy text</button><button class="btn" data-act="csvInvoice">Export CSV</button></div>
+   <div class="card sec"><h3>Payment</h3>${inv.paid?`<div class="row"><span class="pill paid">Paid ${fmtDate(inv.paidDate)} ${esc(inv.method||'')}</span></div><button class="btn" data-act="unpay">Mark unpaid</button>`:
+     `${fld('Method',`<select id="payM">${['Cash','Check','Card','Account'].map(m=>`<option>${m}</option>`).join('')}</select>`)}<button class="btn pri" data-act="markPaid">Mark paid</button>`}</div>
+  </div></div>`;
+}
+const docText=j=>{const c=jobCust(j),v=jobVeh(j),tot=totalsOf(j),st=S.settings;
+  const L=[st.shopName+' - Invoice #'+j.invoice.no,c.name+' - '+vehTitle(v),''];
+  j.labor.filter(l=>l.desc||num(l.hours)).forEach(l=>L.push((l.desc||'Labor')+': '+money(num(l.hours)*num(l.rate))));
+  j.parts.forEach(l=>L.push((l.number?l.number+' ':'')+l.desc+' x'+num(l.qty)+': '+money(num(l.qty)*num(l.price))));
+  L.push('','Tax: '+money(tot.tax),'Total: '+money(tot.total));return L.join('\n')};
+ACT.printDoc=()=>window.print();
+ACT.copyDoc=()=>copyText(docText(job(DOC.id)));
+ACT.csvInvoice=()=>{
+  const j=job(DOC.id),c=jobCust(j),v=jobVeh(j),rows=[['Invoice','Date','Customer','VIN','Type','Part number','Description','Qty','Unit price','Amount']];
+  j.labor.filter(l=>l.desc||num(l.hours)).forEach(l=>rows.push([j.invoice.no,j.invoice.date,c.name,v.vin,'Labor','',l.desc,num(l.hours),num(l.rate),r2(num(l.hours)*num(l.rate))]));
+  j.parts.forEach(l=>rows.push([j.invoice.no,j.invoice.date,c.name,v.vin,'Part',l.number,l.desc,num(l.qty),num(l.price),r2(num(l.qty)*num(l.price))]));
+  const t=totalsOf(j);rows.push([j.invoice.no,j.invoice.date,c.name,v.vin,'Tax','','Sales tax','','',t.tax]);
+  saveFile('invoice-'+j.invoice.no+'.csv',csvOut(rows),'text/csv');
+};
+ACT.markPaid=()=>{const j=job(DOC.id),m=$('#payM');j.invoice.paid=true;j.invoice.paidDate=today();j.invoice.method=m?m.value:'';j.status='paid';persistNow();refresh()};
+ACT.unpay=()=>{const j=job(DOC.id);j.invoice.paid=false;j.invoice.paidDate='';j.status='invoiced';persistNow();refresh()};
+ACT.openVeh=b=>{if(b.dataset.id)sheet(()=>vehSheet(b.dataset.id))};
+
+/* ---------- Previous work on a vehicle (read only, no prices) ---------- */
+ACT.openHist=b=>sheet(()=>histSheet(b.dataset.id));
+function histSheet(jobId){
+  const cur=job(jobId),v=jobVeh(cur),items=parseChecklist(S.settings.checklistText);
+  const js=S.jobs.filter(x=>x.vehicleId===cur.vehicleId&&x.id!==jobId).sort((a,b)=>b.created.localeCompare(a.created));
+  return shHead('Previous work')+`<div class="sheet-b"><div class="card"><b>${esc(vehTitle(v))}</b><div class="vin">${esc(v.vin)}</div></div>
+  ${js.length?js.map(x=>{
+    const flags=Object.entries(x.inspection.items).filter(([k,e])=>e.r==='bad'||e.r==='watch').map(([k,e])=>{const it=items.find(i=>i.id===k);return `<li><span class="pill ${e.r}">${e.r==='bad'?'Bad':'Watch'}</span> ${esc(it?it.label:k)}${e.note?' - '+esc(e.note):''}</li>`}).join('');
+    return `<div class="card sec"><div class="between"><div class="title-line">${fmtDate(x.created)}</div><span class="sub">${x.mileageIn?fmtNum(num(x.mileageIn))+' mi':''}</span></div>
+     ${x.concern?`<div><b>Concern:</b> ${esc(x.concern)}</div>`:''}
+     ${x.labor.length?`<div><b>Labor:</b> ${x.labor.map(l=>(l.desc?esc(l.desc)+' ':'')+(num(l.hours)?'('+num(l.hours)+' hr)':'')).join(', ')}</div>`:''}
+     ${x.parts.length?`<div><b>Parts:</b> ${x.parts.map(p=>(p.number?esc(p.number)+' ':'')+esc(p.desc)+(num(p.qty)>1?' x'+num(p.qty):'')).join(', ')}</div>`:''}
+     ${x.notes?`<div class="note">${esc(x.notes)}</div>`:''}
+     ${flags?`<ul style="margin:0;padding-left:18px">${flags}</ul>`:''}</div>`}).join(''):'<div class="empty">No earlier jobs on this vehicle.</div>'}</div>`;
+}
+
+/* ---------- sign in ---------- */
+function signIn(){
+  stack.length=0;
+  stack.push(()=>`<div class="sheet-h"><h2>Who is working?</h2></div><div class="sheet-b"><p class="sub">Pick your name. The shop can add or change names in Settings.</p>
+   ${S.staff.filter(s=>s.active).map(s=>`<button class="cand" data-act="pickUser" data-id="${s.id}"><div class="row">${dotH(s)}<div><b style="font-family:var(--f-body)">${esc(s.name)}</b><div class="sub">${{admin:'Admin',office:'Office',tech:'Technician'}[s.role]}</div></div></div></button>`).join('')}</div>`);
+  drawSheet();
+}
+ACT.popSheet=()=>{if(!me())return;popSheet()};
+ACT.pickUser=b=>{localStorage.setItem(USERKEY,b.dataset.id);stack.length=0;drawSheet();render();toast('Signed in as '+me().name)};
+ACT.switchUser=()=>signIn();
+
+/* ---------- shell ---------- */
+const TABS=[['jobs','Jobs'],['customers','Customers'],['parts','Parts'],['needs','Shop needs'],['settings','Settings']];
+function render(){
+  const m=me();document.body.classList.toggle('tech',!canSeePrices());
+  $('#who').innerHTML=m?dotH(m)+`<span>${esc(m.name)}</span>`:'Sign in';
+  const needN=S.needs.filter(n=>!n.done).length;
+  const tabs=isTech()?[['open','Open jobs'],['upcoming','Upcoming jobs'],['needs','Shop needs']]:TABS;if(!tabs.some(t=>t[0]===ui.tab))ui.tab=tabs[0][0];
+  $('#tabs').innerHTML=tabs.map(t=>`<button class="tab" role="tab" aria-selected="${ui.tab===t[0]}" data-act="tab" data-t="${t[0]}">${t[1]}${t[0]==='needs'&&needN?`<span class="n">${needN}</span>`:''}</button>`).join('');
+  $('#searchrow').style.display=['jobs','open','upcoming','customers','parts'].includes(ui.tab)?'':'none';
+  $('#q').placeholder={jobs:'Search jobs, customers, VIN, plate',open:'Search open jobs',upcoming:'Search upcoming jobs',customers:'Search customers',parts:'Search parts'}[ui.tab]||'Search';
+  const fn={jobs:vJobs,open:vJobs,upcoming:vJobs,customers:vCustomers,parts:vParts,needs:vNeeds,settings:vSettings}[ui.tab];
+  $('#view').innerHTML=fn();
+}
+ACT.tab=b=>{ui.tab=b.dataset.t;ui.q='';$('#q').value='';render();window.scrollTo(0,0)};
+$('#q').addEventListener('input',e=>{ui.q=e.target.value;$('#view').innerHTML=({jobs:vJobs,open:vJobs,upcoming:vJobs,customers:vCustomers,parts:vParts}[ui.tab]||(()=>''))()});
+
+/* ---------- Jobs ---------- */
+const FILTERS=[['active','Active'],['upcoming','Upcoming'],['ready','Completed'],['unpaid','Unpaid'],['paid','Paid'],['all','All']];
+function techSees(j){const m=me();return !isTech()||(m&&j.assigned.includes(m.id)&&['upcoming','open','ready'].includes(j.status))}
+function jobMatch(j,f){
+  const m=me();if(!techSees(j))return false;
+  return {active:['upcoming','open','ready'].includes(j.status),upcoming:j.status==='upcoming',ready:j.status==='ready',unpaid:j.status==='invoiced',paid:j.status==='paid',all:true}[f];
+}
+function jobCard(j,px){const c=jobCust(j),v=jobVeh(j);return `<div class="card tap" data-act="openJob" data-id="${j.id}" role="button" tabindex="0">
+    <div class="between"><div class="title-line">#${j.no} &middot; ${esc(c?c.name:'')}</div><span class="pill ${j.status}">${statusLabel(j.status)}</span></div>
+    <div>${esc(vehTitle(v))}${v&&v.plate?' &middot; '+esc(v.plate):''}</div>
+    ${j.concern?`<div class="sub">${esc(j.concern.slice(0,110))}</div>`:''}
+    <div class="between" style="margin-top:6px"><div class="dots">${j.assigned.map(id=>dotH(staffOf(id))).join('')}</div><div class="sub">${fmtDate(j.created)}${px?' &middot; <b class="num price">'+money(totalsOf(j).total)+'</b>':''}</div></div></div>`}
+function vJobs(){
+  const q=ui.q.trim().toLowerCase(),px=canSeePrices();
+  let l=S.jobs.filter(j=>techSees(j)&&(q?[jobCust(j)&&jobCust(j).name,jobVeh(j)&&[jobVeh(j).vin,jobVeh(j).plate,jobVeh(j).make,jobVeh(j).model].join(' '),'#'+j.no,j.concern].join(' ').toLowerCase().includes(q):(isTech()||jobMatch(j,ui.jobFilter))));
+  l.sort((a,b)=>b.created.localeCompare(a.created));
+  if(isTech()){
+    if(ui.tab==='upcoming')l=l.filter(j=>j.status==='upcoming');else l=l.filter(j=>j.status!=='upcoming');
+    return l.map(j=>jobCard(j,px)).join('')||`<div class="empty">${q?'No match.':ui.tab==='upcoming'?'Nothing assigned to you yet.':'No open jobs.'}</div>`;
+  }
+  return `${q?'':`<div class="chips" role="group" aria-label="Filter jobs">${FILTERS.map(f=>`<button class="chip" aria-pressed="${ui.jobFilter===f[0]}" data-act="jobFilter" data-f="${f[0]}">${f[1]}<span class="sub"> ${S.jobs.filter(j=>jobMatch(j,f[0])).length}</span></button>`).join('')}</div>`}
+  ${l.length?l.map(j=>jobCard(j,px)).join(''):`<div class="empty">${q?'No match.':'Nothing here yet. Tap + New job to start one.'}</div>`}`;
+}
+ACT.jobFilter=b=>{ui.jobFilter=b.dataset.f;render()};
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.card.tap')){e.preventDefault();e.target.click()}});
+
+/* ---------- Customers ---------- */
+function vCustomers(){
+  const l=findCustomers(ui.q);
+  return `<div class="between"><h2>Customers</h2><button class="btn pri" data-act="newCust">+ Customer</button></div>
+  ${l.length?l.map(c=>{const vs=S.vehicles.filter(v=>v.customerId===c.id),open=S.jobs.filter(j=>j.customerId===c.id&&['upcoming','open','ready'].includes(j.status)).length;
+   return `<div class="card tap" data-act="openCust" data-id="${c.id}" role="button" tabindex="0"><div class="between"><div class="title-line">${esc(c.name)}</div>${open?`<span class="pill open">${open} open</span>`:''}</div>
+    <div class="sub">${esc(c.phone)}${c.phone?' &middot; ':''}${vs.length} vehicle${vs.length===1?'':'s'}${vs.length?': '+esc(vs.slice(0,3).map(vehTitle).join(', ')):''}</div></div>`}).join(''):'<div class="empty">No customers yet.</div>'}`;
+}
+ACT.newCust=()=>{const c={id:uid(),name:'',phone:'',email:'',address:'',taxExempt:false,notes:''};S.customers.push(c);persistNow();sheet(()=>custSheet(c.id));render()};
+ACT.openCust=b=>sheet(()=>custSheet(b.dataset.id));
+function custSheet(id){
+  const c=cust(id),vs=S.vehicles.filter(v=>v.customerId===id),js=S.jobs.filter(j=>j.customerId===id).sort((a,b)=>b.created.localeCompare(a.created));
+  return shHead(esc(c.name||'New customer'))+`<div class="sheet-b">
+  ${fld('Name',inp('cust:'+id,'name',c.name))}<div class="g2">${fld('Phone',inp('cust:'+id,'phone',c.phone,{type:'tel',fmt:'phone'}))}${fld('Email',inp('cust:'+id,'email',c.email,{type:'email'}))}</div>
+  ${fld('Address',inp('cust:'+id,'address',c.address))}
+  <label class="chk"><input type="checkbox" data-m="cust:${id}" data-f="taxExempt" ${c.taxExempt?'checked':''}> Tax exempt</label>
+  ${fld('Notes',area('cust:'+id,'notes',c.notes))}
+  <div class="sec"><h3>Vehicles <button class="btn sm" data-act="custAddVeh" data-id="${id}">+ Vehicle</button></h3>
+   ${vs.length?vs.map(v=>`<button class="cand" data-act="openVeh" data-id="${v.id}"><div><b style="font-family:var(--f-body)">${esc(vehTitle(v))}</b><div class="sub vin">${esc(v.vin)}</div></div></button>`).join(''):'<div class="sub">None yet.</div>'}</div>
+  <div class="sec"><h3>Job history</h3>${js.length?js.map(j=>`<button class="cand" data-act="openJob" data-id="${j.id}"><div><b style="font-family:var(--f-body)">#${j.no} ${fmtDate(j.created)}</b><div class="sub">${esc(vehTitle(jobVeh(j)))}</div></div><span class="pill ${j.status}">${statusLabel(j.status)}</span></button>`).join(''):'<div class="sub">No jobs yet.</div>'}</div>
+  ${!js.length&&!vs.length?`<button class="btn bad" data-act="delCust" data-id="${id}">Delete customer</button>`:''}</div>`;
+}
+ACT.delCust=b=>{if(!confirm('Delete this customer?'))return;S.customers=S.customers.filter(c=>c.id!==b.dataset.id);persistNow();popSheet()};
+ACT.custAddVeh=b=>{
+  NJ={customerId:b.dataset.id,lockCust:true,mode:'vehicleOnly',afterSave:()=>{}};
+  sheet(()=>shHead('Add vehicle')+`<div class="sheet-b"><button class="bigbtn" data-act="njScan">${ICON.cam}<div><b>Scan the VIN</b></div></button>
+   <div class="card sec"><label class="field"><span>Or type a VIN</span><input id="njVin" type="text" maxlength="17" autocapitalize="characters" autocomplete="off" data-fmt="vin"></label><button class="btn pri" data-act="njTypeVin" data-src="njVin">Continue</button></div></div>`);
+};
+
+/* ---------- Vehicle ---------- */
+function vehSheet(id){
+  const v=veh(id),c=cust(v.customerId),js=S.jobs.filter(j=>j.vehicleId===id).sort((a,b)=>b.created.localeCompare(a.created)),m=vehMiles(id);
+  return shHead(esc(vehTitle(v)))+`<div class="sheet-b">
+  <div class="card"><b>${esc(c?c.name:'')}</b><div class="sub">${m?'Last mileage '+fmtNum(m):'No mileage on file'}</div></div>
+  <div class="btnrow"><button class="btn pri" data-act="vehNewJob" data-id="${id}">Start job for this vehicle</button></div>
+  ${fld('VIN',inp('veh:'+id,'vin',v.vin,{fmt:'vin',max:17,cap:1}))}
+  <div class="btnrow"><button class="btn sm" data-act="vehScanVin" data-id="${id}">Scan VIN</button><button class="btn sm" data-act="vehDecode" data-id="${id}">Look up from VIN</button></div>
+  <div class="g2">${fld('Year',inp('veh:'+id,'year',v.year,{mode:'numeric'}))}${fld('Make',inp('veh:'+id,'make',v.make))}</div>
+  <div class="g2">${fld('Model',inp('veh:'+id,'model',v.model))}${fld('Trim',inp('veh:'+id,'trim',v.trim))}</div>${fld('Plate',inp('veh:'+id,'plate',v.plate,{cap:1}))}
+  <div class="sec"><h3>Service history</h3>${js.length?js.map(j=>`<button class="cand" data-act="openJob" data-id="${j.id}"><div><b style="font-family:var(--f-body)">${fmtDate(j.created)} &middot; #${j.no}</b><div class="sub">${esc((j.concern||j.labor.map(l=>l.desc).join(', ')).slice(0,100))}${j.mileageIn?' &middot; '+fmtNum(num(j.mileageIn))+' mi':''}</div></div><span class="pill ${j.status}">${statusLabel(j.status)}</span></button>`).join(''):'<div class="sub">No jobs yet.</div>'}</div></div>`;
+}
+ACT.vehNewJob=b=>{stack.length=0;makeJob(b.dataset.id)};
+ACT.vehScanVin=b=>startScan('vin',v=>{veh(b.dataset.id).vin=v;persistNow();refresh()});
+ACT.vehDecode=async b=>{const v=veh(b.dataset.id),d=await decodeVin(v.vin);if(!d){toast('Could not look that up');return}Object.assign(v,d);persistNow();refresh()};
+
+/* ---------- Parts ---------- */
+let IMP={};
+function vParts(){
+  const q=ui.q.trim().toLowerCase(),l=S.parts.filter(p=>!q||[p.number,p.desc,p.brand,p.supplier,p.upc].join(' ').toLowerCase().includes(q)).sort((a,b)=>a.number.localeCompare(b.number)).slice(0,200);
+  return `<div class="between"><h2>Parts <span class="sub">${S.parts.length}</span></h2><div class="btnrow" style="flex:none"><button class="btn sm" data-act="newPart">+ Part</button>${isAdmin()?'<label class="btn sm" style="cursor:pointer">Import price list<input type="file" accept=".csv,.txt,.tsv" hidden id="impFile"></label><button class="btn sm" data-act="exportParts">Export</button>':''}</div></div>
+  ${l.length?l.map(p=>`<div class="card tap" data-act="editPart" data-id="${p.id}" role="button" tabindex="0"><div class="between"><div><span class="vin">${esc(p.number)}</span> <b>${esc(p.desc)}</b></div><span class="num price"><b>${p.price?money(num(p.price)):''}</b></span></div>
+   <div class="sub">${esc([p.brand,p.supplier].filter(Boolean).join(' / '))}${p.uses?' &middot; used '+p.uses+'x':''}${p.cost&&isAdmin()?' &middot; cost '+money(num(p.cost)):''}</div>
+   <div class="btnrow" style="margin-top:6px"><button class="btn sm" data-act="needFromPart" data-id="${p.id}">Add to shop needs</button></div></div>`).join(''):'<div class="empty">No parts yet. Parts are remembered the first time you add them to a job, or import a supplier price list.</div>'}`;
+}
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='impFile')return;const f=e.target.files[0];e.target.value='';if(!f)return;
+  const rows=parseCSV(await f.text()).filter(r=>r.some(x=>String(x).trim()));
+  if(rows.length<2){toast('That file looks empty');return}
+  const g=guessColumns(rows[0]);IMP={rows,hdr:rows[0],number:g.number,desc:g.desc,cost:g.cost,list:g.list,brand:g.brand,supplier:f.name.replace(/\.[^.]+$/,''),useList:g.list>=0&&g.cost<0};
+  sheet(impSheet);
+});
+function impSheet(){
+  const opt=(k)=>`<select data-m="imp" data-f="${k}" data-redraw="1"><option value="-1">(none)</option>${IMP.hdr.map((h,i)=>`<option value="${i}" ${+IMP[k]===i?'selected':''}>${esc(h||'Column '+(i+1))}</option>`).join('')}</select>`;
+  const sample=IMP.rows.slice(1,4).map(r=>`${esc(r[IMP.number]||'')} | ${esc(r[IMP.desc]||'')} | ${esc(r[IMP.cost]||r[IMP.list]||'')}`).join('<br>');
+  return shHead('Import price list')+`<div class="sheet-b"><p class="sub">${IMP.rows.length-1} rows found. Check the columns match.</p>
+  ${fld('Part number column',opt('number'))}${fld('Description column',opt('desc'))}${fld('Your cost column',opt('cost'))}${fld('List or retail column',opt('list'))}${fld('Brand column',opt('brand'))}
+  ${fld('Supplier name',inp('imp','supplier',IMP.supplier))}
+  <label class="chk"><input type="checkbox" data-m="imp" data-f="useList" ${IMP.useList?'checked':''}> Use the list column as customer price (otherwise cost + ${num(S.settings.partsMarkup)}%)</label>
+  <div class="card sub">Preview:<br><span class="vin">${sample}</span></div>
+  <button class="btn pri" data-act="impGo">Import</button></div>`}
+ACT.impGo=()=>{
+  const n=+IMP.number;if(n<0){toast('Choose the part number column');return}
+  let add=0,upd=0;
+  for(const r of IMP.rows.slice(1)){
+    const number=String(r[n]||'').trim();if(!number)continue;
+    const cost=IMP.cost>=0?String(num(r[IMP.cost])||''):'',list=IMP.list>=0?String(num(r[IMP.list])||''):'';
+    const price=IMP.useList&&list?list:(cost?String(priceFromCost(cost,S.settings.partsMarkup)):list);
+    let p=findPart(number);const d={number,desc:IMP.desc>=0?String(r[IMP.desc]||'').trim():'',brand:IMP.brand>=0?String(r[IMP.brand]||'').trim():'',supplier:IMP.supplier||''};
+    if(p){Object.assign(p,{...d,desc:d.desc||p.desc});if(cost)p.cost=cost;if(price)p.price=price;upd++}
+    else{S.parts.push({id:uid(),uses:0,last:'',upc:'',cost,price,...d});add++}
+  }
+  persistNow();popSheet();toast(add+' added, '+upd+' updated');
+};
+ACT.exportParts=()=>saveFile('parts.csv',csvOut([['Part number','Description','Brand','Supplier','Cost','Price','UPC'],...S.parts.map(p=>[p.number,p.desc,p.brand,p.supplier,p.cost,p.price,p.upc])]),'text/csv');
+ACT.needFromPart=(b,e)=>{e.stopPropagation();const p=S.parts.find(x=>x.id===b.dataset.id);addNeed(p.number+' '+p.desc,'1','Parts stock');toast('Added to shop needs')};
+
+/* ---------- Shop needs ---------- */
+let NP=null;
+function addNeed(text,qty,cat,photo){const m=me(),n={id:uid(),text,qty:qty||'1',cat:cat||'Shop supplies',by:m?m.id:'',at:today(),done:false};S.needs.push(n);
+  if(photo){const p={id:uid(),jobId:'needs',kind:'need',refId:n.id,caption:'',at:new Date().toISOString(),by:m?m.id:'',data:photo};P.push(p);idbPut(p)}persistNow()}
+const needPhoto=id=>P.find(p=>p.kind==='need'&&p.refId===id);
+function dropNeedPhotos(ids){const set=new Set(ids);P.filter(p=>p.kind==='need'&&set.has(p.refId)).forEach(p=>idbDel(p.id));P=P.filter(p=>!(p.kind==='need'&&set.has(p.refId)))}
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='nPhoto'&&e.target.id!=='nPhoto2')return;const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const c=await fileToCanvas(f,1400);NP=c.toDataURL('image/jpeg',.8);const pv=$('#nPrev');if(pv)pv.innerHTML=`<div class="ph" style="width:84px"><img src="${NP}" alt="Photo to attach"><button data-act="needPhotoClear" aria-label="Remove photo">&times;</button></div>`}catch(x){toast(x.message)}
+});
+ACT.needPhotoClear=()=>{NP=null;const pv=$('#nPrev');if(pv)pv.innerHTML=''};
+function vNeeds(){
+  const open=S.needs.filter(n=>!n.done),done=S.needs.filter(n=>n.done);
+  return `<div class="between"><h2>Shop needs</h2><div class="btnrow" style="flex:none"><button class="btn sm" data-act="copyNeeds">Copy list</button>${done.length?'<button class="btn sm" data-act="clearNeeds">Clear checked</button>':''}</div></div>
+  <div class="card sec"><div class="sec"><label class="field"><span class="sr">Item</span><input id="nText" type="text" placeholder="What does the shop need?" autocomplete="off"></label>
+   <label class="field"><span class="sr">Category</span><select id="nCat">${NEED_CATS.map(c=>`<option>${c}</option>`).join('')}</select></label></div>
+   <div class="btnrow"><input id="nQty" type="text" inputmode="numeric" placeholder="Qty" value="1" style="max-width:90px" aria-label="Quantity"><label class="btn" style="cursor:pointer">Take photo<input id="nPhoto" type="file" accept="image/*" capture="environment" hidden></label><label class="btn" style="cursor:pointer">From library<input id="nPhoto2" type="file" accept="image/*" hidden></label></div>
+   <div id="nPrev">${NP?`<div class="ph" style="width:84px"><img src="${NP}" alt="Photo to attach"><button data-act="needPhotoClear" aria-label="Remove photo">&times;</button></div>`:''}</div>
+   <button class="btn pri" data-act="addNeed">Add to list</button></div>
+  ${NEED_CATS.map(cat=>{const l=open.filter(n=>n.cat===cat);return l.length?`<div class="card sec"><h3>${cat}</h3>${l.map(needRow).join('')}</div>`:''}).join('')||'<div class="empty">Nothing needed right now.</div>'}
+  ${done.length?`<div class="card sec"><h3>Ordered or bought</h3>${done.map(needRow).join('')}</div>`:''}`;
+}
+const needRow=n=>{const ph=needPhoto(n.id);return `${ph?`<div class="due"><img src="${ph.data}" data-act="viewPhoto" data-id="${ph.id}" alt="Photo of ${esc(n.text)}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;cursor:zoom-in;flex:none">`:'<div class="due">'}<label class="chk grow" style="flex:1 1 170px"><input type="checkbox" data-act="needToggle" data-id="${n.id}" ${n.done?'checked':''}><span class="grow" style="${n.done?'text-decoration:line-through;opacity:.6':''}">${esc(n.text)} <span class="sub">x${esc(n.qty)} &middot; ${esc((staffOf(n.by)||{}).name||'')} ${fmtDate(n.at)}</span></span></label></div>`};
+ACT.addNeed=()=>{const t=$('#nText').value.trim();if(!t){toast('Type what is needed');return}addNeed(t,$('#nQty').value,$('#nCat').value,NP);NP=null;render()};
+ACT.needToggle=b=>{const n=S.needs.find(x=>x.id===b.dataset.id);n.done=b.checked;persistNow();render()};
+ACT.clearNeeds=()=>{dropNeedPhotos(S.needs.filter(n=>n.done).map(n=>n.id));S.needs=S.needs.filter(n=>!n.done);persistNow();render()};
+ACT.copyNeeds=()=>copyText(NEED_CATS.map(c=>{const l=S.needs.filter(n=>!n.done&&n.cat===c);return l.length?c+':\n'+l.map(n=>'- '+n.text+' x'+n.qty).join('\n'):''}).filter(Boolean).join('\n\n')||'Nothing needed');
+
+/* ---------- Settings ---------- */
+function vSettings(){
+  const st=S.settings,adm=me()&&me().role==='admin',off=isAdmin();
+  return `<h2>Settings</h2>
+  ${off?`<div class="card sec"><h3>Shop</h3>${fld('Shop name',inp('set','shopName',st.shopName))}<div class="g2">${fld('Phone',inp('set','phone',st.phone,{type:'tel',fmt:'phone'}))}${fld('Address',inp('set','address',st.address))}</div>
+   <div class="g3">${fld('Labor rate',inp('set','laborRate',st.laborRate,{mode:'decimal'}))}${fld('Parts markup %',inp('set','partsMarkup',st.partsMarkup,{mode:'decimal'}))}${fld('Sales tax %',inp('set','taxRate',st.taxRate,{mode:'decimal'}))}</div>
+   <label class="chk"><input type="checkbox" data-m="set" data-f="laborTaxable" ${st.laborTaxable?'checked':''}> Charge tax on labor</label>
+   <label class="chk"><input type="checkbox" data-m="set" data-f="techPrices" data-redraw="1" ${st.techPrices?'checked':''}> Technicians can see prices</label>
+   ${fld('Invoice footer',area('set','invNote',st.invNote))}</div>
+  <div class="card sec"><h3>People</h3>${S.staff.map(s=>`<div class="row">${dotH(s)}${inp('staff:'+s.id,'name',s.name)}<select data-m="staff:${s.id}" data-f="role" aria-label="Role"><option value="admin" ${s.role==='admin'?'selected':''}>Admin</option><option value="office" ${s.role==='office'?'selected':''}>Office</option><option value="tech" ${s.role==='tech'?'selected':''}>Tech</option></select>
+    <label class="chk" style="flex:none"><input type="checkbox" data-m="staff:${s.id}" data-f="active" ${s.active?'checked':''}>On</label></div>`).join('')}
+   <button class="btn" data-act="addStaff">+ Add person</button></div>
+  <div class="card sec"><h3>Inspection checklist</h3><div class="sub">One item per line. Use "Group: item" to group them.</div>${area('set','checklistText',st.checklistText)}</div>`:''}
+  <div class="card sec"><h3>Backup</h3><div class="sub">Everything is stored in this browser only. Export a backup regularly, and before clearing browser data.</div>
+   <div class="btnrow"><button class="btn" data-act="backup">Export backup</button><label class="btn" style="cursor:pointer">Restore backup<input type="file" accept=".json" hidden id="restoreFile"></label></div></div>
+  <div class="card sec"><h3>Sample data</h3>${S.demo?'<div class="sub">Sample customers and jobs are loaded.</div><button class="btn" data-act="clearDemo">Remove sample data</button>':'<button class="btn" data-act="loadDemo">Load sample data</button>'}</div>`;
+}
+ACT.addStaff=()=>{S.staff.push({id:uid(),name:'New person',role:'tech',color:COLORS[S.staff.length%COLORS.length],active:true});persistNow();render()};
+ACT.loadDemo=()=>{seedDemo();persistNow();render()};
+ACT.clearDemo=()=>{if(confirm('Remove the sample customers, vehicles, jobs and parts?')){clearDemo();render()}};
+ACT.backup=()=>{saveFile('bloom-repair-backup-'+today()+'.json',JSON.stringify({app:'bloom-repair',S,photos:P}),'application/json')};
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='restoreFile')return;const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const d=JSON.parse(await f.text());if(d.app!=='bloom-repair'||!d.S)throw 0;
+    if(!confirm('Replace everything in this browser with the backup?'))return;
+    S=d.S;P=d.photos||[];persistNow();idbClear();P.forEach(idbPut);render();toast('Backup restored')}catch(x){toast('That is not a Bloom Repair backup')}
+});
+document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.m==='set'&&e.target.dataset.f==='techPrices')render()});
+
+/* ---------- boot ---------- */
+(async function boot(){
+  S=load();let fresh=false;
+  if(S)for(const j of S.jobs)if(j.status==='estimate')j.status='open';
+  if(!S){S=defaults();fresh=true}
+  else{const d=defaults();S.settings=Object.assign(d.settings,S.settings)}
+  idb=await openIDB();P=await idbAll();
+  if(fresh){seedDemo();persistNow()}
+  render();
+  if(!me())signIn();
+  if('serviceWorker' in navigator){}
+})();
+
+/* ---------- favicon / home screen icon ---------- */
+window.addEventListener('load',()=>{try{
+  const S0=192,c=document.createElement('canvas');c.width=c.height=S0;const g=c.getContext('2d'),r=S0*.22;
+  const gr=g.createLinearGradient(0,0,S0,S0);gr.addColorStop(0,'#323a42');gr.addColorStop(1,'#1a1e22');
+  g.fillStyle=gr;g.beginPath();g.roundRect(0,0,S0,S0,r);g.fill();
+  const hl=g.createLinearGradient(0,0,0,S0*.5);hl.addColorStop(0,'rgba(255,255,255,.14)');hl.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=hl;g.beginPath();g.roundRect(0,0,S0,S0*.5,[r,r,0,0]);g.fill();
+  g.save();g.translate(S0*.17,S0*.17);g.scale(S0*.66/32,S0*.66/32);g.strokeStyle='#e8591b';g.lineWidth=2.6;g.lineCap='round';g.lineJoin='round';
+  g.stroke(new Path2D('M21.5 4.5a6.5 6.5 0 0 0-6.2 8.4L5 23.2a2.9 2.9 0 0 0 4.100 4.100l10.300-10.300a6.500 6.500 0 0 0 8.400-6.200l-4.300 4.300-3.400-.9-.9-3.400z'));g.restore();
+  const u=c.toDataURL('image/png');
+  for(const rel of ['icon','apple-touch-icon']){const l=document.createElement('link');l.rel=rel;l.href=u;document.head.appendChild(l)}
+}catch(e){}});
+
+</script>
+</body>
+</html>
