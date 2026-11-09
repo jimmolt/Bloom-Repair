@@ -203,6 +203,10 @@ body.tech .price{display:none!important}
 
 .btnrow.tight .btn{flex:1 1 0;min-width:0;padding-inline:6px}
 
+.camv{position:relative;width:100%;height:min(58vh,460px);background:#000;border-radius:14px;overflow:hidden}
+.camv video{width:100%;height:100%;object-fit:cover;display:block}
+.camframe{position:absolute;border:3px solid #fff;border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.55);pointer-events:none}
+
 </style>
 </head>
 <body>
@@ -257,7 +261,13 @@ function checkDigitOK(v){
   const r=sum%11;return v[8]===(r===10?'X':String(r));
 }
 function plausible(v){return VIN_RE.test(v)&&YEAR_CHARS.includes(v[9])}
-function normalizeRun(s){return s.toUpperCase().replace(/\bVIN\b[:#]?/g,' ').replace(/[^A-Z0-9]/g,'').replace(/I/g,'1').replace(/[OQ]/g,'0')}
+/* the word VIN printed in front of the number is a label, not part of it. OCR may read it as VIN, V1N, VlN or V|N, with or without a space or colon. */
+function normalizeRun(s){
+  let t=s.toUpperCase().replace(/\bV[I1L|!]N\b[:#.\-\s]*/g,' ').replace(/^\s*V[I1L|!]N[:#.\-]+/,' ');
+  t=t.replace(/[^A-Z0-9]/g,'').replace(/I/g,'1').replace(/[OQ]/g,'0');
+  if(t.length>=18&&/^V[1L]N/.test(t))t=t.slice(3);
+  return t;
+}
 function candidatesFromText(text){
   const out=new Map();
   const all=text.split(/\r?\n/).map(normalizeRun);
@@ -413,7 +423,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.2.1',APP_DATE='2026-11-08';
+const APP_VERSION='1.3.0',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -603,7 +613,8 @@ const SCAN_HINT={vin:'Photograph the VIN on the windshield (lower driver side) o
 
 function startScan(kind,cb){try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('portrait').catch(()=>{})}catch(e){}
   Object.assign(SC,{kind,cb,step:'pick',orig:null,canvas:null,region:null,busy:false,cands:[],msg:'',pct:0,note:'',raw:''});drawScan()}
-function closeScan(){try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock()}catch(e){}
+function closeScan(){try{camStop()}catch(e){}
+  try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock()}catch(e){}
   const s=$('#scan');s.className='';s.innerHTML='';document.body.style.overflow=stack.length?'hidden':''}
 function drawScan(){
   if(SC.kind==='vin'||SC.kind==='odo')return drawScanVin();
@@ -846,15 +857,17 @@ function cropRegion(src,r){
 function drawScanVin(){
   const s=$('#scan');s.className='on';document.body.style.overflow='hidden';
   const st=SC.step||'pick',top=SC.cands[0],vin=SC.kind==='vin';
-  const T=vin?{title:'Scan VIN',what:'the 17 characters of the VIN',pick:'Photograph the VIN on the windshield (lower driver side) or the door post sticker. You will crop the photo to just the VIN next.',
+  const T=vin?{title:'Scan VIN',what:'the 17 characters of the VIN',pick:'Photograph the VIN on the windshield (lower driver side) or the door post sticker. The camera shows a box. Fit the VIN inside it.',
      ph:'17 character VIN',inp:'type="text" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false"',lab:'VIN',acc:'Accept VIN',use:'Use this VIN',
      fmt:"this.value=cleanVin(this.value);document.getElementById('vinLen').textContent=this.value.length+'/17'",len:v=>v.length+'/17',turn:' Use Turn if the VIN is sideways.'}
-   :{title:'Scan odometer',what:'the odometer digits',pick:'Photograph the odometer display with the ignition on. You will crop the photo to just the digits next.',
+   :{title:'Scan odometer',what:'the odometer digits',pick:'Photograph the odometer display with the ignition on. The camera shows a box. Fit the digits inside it.',
      ph:'Miles',inp:'type="text" inputmode="numeric" autocomplete="off"',lab:'Mileage',acc:'Accept mileage',use:'Use this reading',
      fmt:"this.value=this.value.replace(/\\D/g,'')",len:()=>'',turn:''};
+  const camOK=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+  const retake=camOK?'<button class="btn" data-act="scanCam">Retake photo</button>':null;
   const files=(lbl,pri)=>`<label class="btn ${pri?'pri':''}" style="text-align:center;cursor:pointer">${lbl}<input id="scanFile" type="file" accept="image/*" capture="environment" hidden></label><label class="btn" style="text-align:center;cursor:pointer">Choose from library<input id="scanFile2" type="file" accept="image/*" hidden></label>`;
   let body='';
-  if(st==='pick')body=`<p class="sub">${T.pick}</p><div class="btnrow">${files('Take photo',1)}</div>
+  if(st==='pick')body=`<p class="sub">${T.pick}</p><div class="btnrow">${camOK?'<button class="btn pri" data-act="scanCam">Take photo</button>'+files('Use phone camera app'):files('Take photo',1)}</div>
     <div class="sec"><label class="field"><span>Or type it</span><input id="scanType" ${T.inp} placeholder="${T.ph}"></label><button class="btn" data-act="scanTyped">${T.use}</button></div>`;
   if(st==='crop')body=`<p class="sub"><b>Crop to the ${vin?'VIN':'digits'}.</b> Pinch or use + and - to zoom, drag the photo to move it, and drag the white corners to fit the box around ${T.what}.${T.turn}</p>
     <div class="cropv" id="shot"></div>
@@ -867,11 +880,46 @@ function drawScanVin(){
     <label class="field"><span>${T.lab} <b id="vinLen" class="num">${top?T.len(top.value):''}</b></span><input id="scanType" ${T.inp} value="${esc(top?top.value:'')}" style="font-family:var(--f-mono);font-size:18px;letter-spacing:.05em" oninput="${T.fmt}"></label>
     ${SC.cands.length>1?`<div class="sub">Other readings:</div>${SC.cands.slice(1).map((c,i)=>`<button class="cand" data-act="scanFill" data-i="${i+1}"><b>${esc(c.label)}</b><span class="sub">${esc(c.note||'')}</span></button>`).join('')}`:''}
     <button class="btn pri" data-act="scanTyped">${T.acc}</button>
-    <div class="btnrow"><button class="btn" data-act="scanRecrop">Crop again</button>${files('Retake photo')}</div>`;
+    <div class="btnrow"><button class="btn" data-act="scanRecrop">Crop again</button>${retake||files('Retake photo')}</div>`;
+  if(st==='cam')body=`<div class="camv" id="camv"><video playsinline muted autoplay></video><div class="camframe" id="camframe"></div></div>
+    <p class="sub">Hold the phone upright and line up ${T.what} inside the box so the text is level and fills it. Tap the screen to focus.</p>
+    <button class="btn pri" data-act="camShot">Take photo</button><button class="btn" data-act="camCancel">Cancel</button>`;
   s.innerHTML=`<div class="shade" data-act="scanClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${T.title}"><div class="sheet-h"><button class="btn sm" data-act="scanClose">Close</button><h2>${T.title}</h2></div><div class="sheet-b">${body}${st==='pick'&&SC.msg?`<div class="sub">${esc(SC.msg)}</div>`:''}</div></div>`;
+  if(st==='cam')camStart();
   const sh=$('#shot');if(sh&&SC.canvas){if(st==='crop')startCropView(sh);else sh.appendChild(showCanvas(true))}
   for(const id of ['scanFile','scanFile2']){const f=$('#'+id);if(f)f.onchange=async e=>{const file=e.target.files[0];if(file)await loadScanFile(file)}}
 }
+/* ----- live camera with a rounded guide box: hold the phone upright, fit the text in the box ----- */
+function camStop(){if(SC.stream){try{SC.stream.getTracks().forEach(t=>t.stop())}catch(e){}SC.stream=null}}
+function camLayout(){
+  const box=$('#camv'),f=$('#camframe');if(!box||!f)return;
+  const cw=box.clientWidth,ch=box.clientHeight,asp=SC.kind==='vin'?4.6:3;
+  let fw=cw*.92,fh=fw/asp;if(fh>ch*.8){fh=ch*.8;fw=fh*asp}
+  const x=(cw-fw)/2,y=(ch-fh)/2;f.style.cssText=`left:${x}px;top:${y}px;width:${fw}px;height:${fh}px`;
+  SC.frame={x,y,w:fw,h:fh,cw,ch};
+}
+async function camStart(){
+  const v=$('#camv video');if(!v)return;
+  try{
+    SC.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+    v.srcObject=SC.stream;v.setAttribute('playsinline','');await v.play();
+    try{const t=SC.stream.getVideoTracks()[0],c=t.getCapabilities?t.getCapabilities():{};if(c.focusMode&&c.focusMode.includes('continuous'))await t.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+    camLayout();
+  }catch(e){
+    camStop();SC.step='pick';SC.msg='The camera could not open ('+(e&&e.name||'error')+'). Allow camera access for this site, or use the phone camera app.';drawScan();
+  }
+}
+ACT.scanCam=()=>{SC.step='cam';SC.cands=[];SC.msg='';drawScan()};
+ACT.camCancel=()=>{camStop();SC.step='pick';drawScan()};
+ACT.camShot=()=>{
+  const v=$('#camv video'),F=SC.frame;if(!v||!F||!v.videoWidth)return;
+  const vw=v.videoWidth,vh=v.videoHeight,k=Math.max(F.cw/vw,F.ch/vh),ox=(vw*k-F.cw)/2,oy=(vh*k-F.ch)/2;
+  const full=document.createElement('canvas'),m=Math.min(1,2400/Math.max(vw,vh));full.width=Math.round(vw*m);full.height=Math.round(vh*m);
+  full.getContext('2d').drawImage(v,0,0,full.width,full.height);
+  const pad=.04;let x0=(F.x+ox)/k/vw-pad*F.w/k/vw,y0=(F.y+oy)/k/vh-pad*F.h/k/vh,x1=(F.x+F.w+ox)/k/vw+pad*F.w/k/vw,y1=(F.y+F.h+oy)/k/vh+pad*F.h/k/vh;
+  x0=Math.max(0,x0);y0=Math.max(0,y0);x1=Math.min(1,x1);y1=Math.min(1,y1);
+  camStop();SC.orig=full;SC.canvas=cropRegion(full,{x:x0,y:y0,w:x1-x0,h:y1-y0});SC.region=null;SC.cands=[];SC.step='read';SC.msg='Reading...';drawScan();runScan();
+};
 ACT.scanAccept=()=>{
   const V=SC.cv;
   if(V&&SC.step==='crop'){const b=V.box;SC.canvas=cropRegion(SC.orig,{x:b.x0/V.iw,y:b.y0/V.ih,w:(b.x1-b.x0)/V.iw,h:(b.y1-b.y0)/V.ih})}
