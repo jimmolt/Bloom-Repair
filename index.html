@@ -434,7 +434,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.6.1',APP_DATE='2026-11-08';
+const APP_VERSION='1.6.2',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -474,6 +474,7 @@ const isAdmin=()=>{const m=me();return !!m&&(m.role==='admin'||m.role==='office'
 const canSeePrices=()=>{const m=me();return !!m&&(m.role!=='tech'||S.settings.techPrices)};
 const isTech=()=>{const m=me();return !!m&&m.role==='tech'};
 const crew=()=>S.staff.filter(s=>s.active&&s.role!=='office');
+const techs=()=>S.staff.filter(s=>s.active&&s.role==='tech');
 const photosOf=(jobId,kind)=>P.filter(p=>p.jobId===jobId&&(!kind||p.kind===kind));
 const initials=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const dotH=s=>s?`<span class="dot" style="background:${esc(s.color)}" title="${esc(s.name)}">${esc(initials(s.name))}</span>`:'';
@@ -1036,7 +1037,7 @@ ACT.newJob=()=>{if(!me())return signIn();pruneBlankCusts();NJ={};stack.length=0;
 function njHome(){return shHead('New job')+`<div class="sheet-b">
  <button class="bigbtn" data-act="njScan">${ICON.cam}<div><b>Scan a VIN</b><span class="sub">Photo of the windshield or door post</span></div></button>
  <div class="card sec"><label class="field"><span>Or type a VIN</span><input id="njVin" type="text" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="17 character VIN" data-fmt="vin"></label>
-  <button class="btn pri" data-act="njTypeVin" data-src="njVin">Start job</button></div>
+  <button class="btn pri" data-act="njTypeVin" data-src="njVin">Save and add job</button></div>
  <button class="bigbtn" data-act="njCust">${ICON.user}<div><b>Existing customer</b><span class="sub">Pick one of their vehicles or add a new VIN</span></div></button>
  <button class="bigbtn" data-act="njNewCust">${ICON.plus}<div><b>New customer</b><span class="sub">Add them first, then the vehicle</span></div></button></div>`}
 ACT.njScan=()=>startScan('vin',afterVin);
@@ -1057,7 +1058,7 @@ function njKnown(){
    <div class="card sec"><div class="sub">This VIN is already on file.</div><div class="title-line">${esc(vehTitle(v))} ${esc(v.trim||'')}</div><div class="vin">${esc(v.vin)}</div>
     <div class="sub">${v.plate?'Plate '+esc(v.plate)+' &middot; ':''}${m?'Last mileage '+fmtNum(m):'No mileage on file'}${last?' &middot; last visit '+fmtDate(last.created):''}</div></div>
    <div class="card sec"><div class="sub">Customer</div><div class="title-line">${esc(c?c.name:'')}</div><div class="sub">${esc(c?c.phone:'')}</div></div>
-   <button class="btn pri" data-act="njKnownGo">Start job for ${esc(c?c.name:'this customer')}</button></div>`;
+   <button class="btn pri" data-act="njKnownGo">Save and add job</button></div>`;
 }
 ACT.njKnownGo=()=>makeJob(NJ.knownVeh);
 function njVehicleForm(){
@@ -1075,7 +1076,7 @@ function njVehicleForm(){
    ${fld('Plate',inp('nj','plate',NJ.plate,{cap:1}))}
    <button class="linkbtn" data-act="njRedecode">Look up again</button></div>
   ${custBlock}
-  <button class="btn pri" data-act="njSave">${vo?'Save vehicle':'Save and start job'}</button></div>`}
+  <button class="btn pri" data-act="njSave">${vo?'Save vehicle':'Save and add job'}</button></div>`}
 function njList2(q){const l=findCustomers(q);
   return l.length?l.slice(0,30).map(c=>`<button class="cand" data-act="njSetCust" data-id="${c.id}"><div><b class="nm">${esc(c.name)}</b><div class="sub">${esc(c.phone)} &middot; ${S.vehicles.filter(v=>v.customerId===c.id).length} vehicles</div></div></button>`).join(''):'<div class="empty">No match. Choose New customer to add them.</div>'}
 function njFilter2(){const e=$('#njList2');if(e)e.innerHTML=njList2($('#njQ2').value)}
@@ -1105,7 +1106,7 @@ function njVehiclesSheet(){
    <div class="sec"><h3>Add a new vehicle</h3>
     <button class="bigbtn" data-act="njScan2">${ICON.cam}<div><b>Scan the VIN</b></div></button>
     <div class="card sec"><label class="field"><span>Or type a VIN</span><input id="njVin2" type="text" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false" data-fmt="vin"></label>
-    <button class="btn pri" data-act="njTypeVin" data-src="njVin2">Add vehicle and start job</button></div></div></div>`}
+    <button class="btn pri" data-act="njTypeVin" data-src="njVin2">Save and add job</button></div></div></div>`}
 ACT.njScan2=()=>startScan('vin',afterVin);
 ACT.njPickVeh=b=>makeJob(b.dataset.id);
 ACT.njNewCust=()=>{if(!NJ.newCid||!cust(NJ.newCid))NJ.newCid=newCustRec().id;const id=NJ.newCid;
@@ -1115,7 +1116,7 @@ ACT.njMakeCust=()=>{const c=cust(NJ.newCid);if(!c||!String(c.name||'').trim()){t
 function makeJob(vid){
   const v=veh(vid),m=me();
   const j={id:uid(),no:S.nextJob++,customerId:v.customerId,vehicleId:vid,status:m&&m.role==='tech'?'open':'upcoming',created:nowStamp(),createdBy:m?m.id:'',mileageIn:'',
-    concern:'',notes:'',invNotes:'',assigned:m&&m.role==='tech'?[m.id]:[],labor:[],parts:[],inspection:{items:{},done:false},invoice:{}};
+    concern:'',notes:'',invNotes:'',assigned:m&&m.role==='tech'?[m.id]:(techs().length===1?[techs()[0].id]:[]),labor:[],parts:[],inspection:{items:{},done:false},invoice:{}};
   j.fresh=true;
   S.jobs.push(j);persistNow();stack.length=0;openJobSheet(j.id);render();toast('Job #'+j.no+' started');
 }
@@ -1204,11 +1205,10 @@ function jobSheet(id){
     <div><b>${esc(vehTitle(v))}</b>${v&&v.trim?' '+esc(v.trim):''}<div class="vin">${esc(v?v.vin:'')}${v&&v.plate?' &middot; '+esc(v.plate):''}</div></div>
   </div>
   ${j.status==='upcoming'&&!j.fresh?`<div class="banner"><span>Upcoming job. Start it when you begin work.</span><button class="btn sm pri" data-act="setStatus" data-id="${j.id}" data-s="open">Start job</button></div>`:''}
-  ${!String(j.mileageIn).trim()?`<div class="banner"><span>Mileage not recorded yet.</span><button class="btn sm pri" data-act="scanOdo" data-id="${j.id}" data-f="mileageIn">Scan odometer</button></div>`:''}
   <div class="sec">${fld('Mileage',inp('job:'+j.id,'mileageIn',j.mileageIn,{mode:'numeric'}))}<button class="btn sm" data-act="scanOdo" data-id="${j.id}" data-f="mileageIn">${ICON.cam.replace('<svg','<svg width="16" height="16"')} Scan odometer</button>${last&&last!==num(j.mileageIn)?`<div class="sub">Last on file: ${fmtNum(last)}</div>`:''}</div>
   ${isTech()?'':`<div class="step" role="group" aria-label="Job status">${STATUS.map(s=>`<button data-act="setStatus" data-id="${j.id}" data-s="${s[0]}" ${j.status===s[0]?'aria-current="true"':''}>${s[1]}</button>`).join('')}</div>`}
   ${fld('Customer concern',area('job:'+j.id,'concern',j.concern,'What the customer says is wrong'))}
-  ${isTech()?'':`<div class="sec"><h3>Assigned</h3><div class="chips">${crew().map(s=>`<button class="chip" aria-pressed="${j.assigned.includes(s.id)}" data-act="toggleAssign" data-id="${j.id}" data-s="${s.id}">${esc(s.name)}</button>`).join('')}</div></div>`}
+  ${isTech()?'':`<div class="sec"><h3>Assign to</h3><div class="chips">${techs().map(s=>`<button class="chip" aria-pressed="${j.assigned.includes(s.id)}" data-act="toggleAssign" data-id="${j.id}" data-s="${s.id}">${esc(s.name)}</button>`).join('')}</div></div>`}
 
   ${j.fresh?'':`  <div class="card sec"><h3>Labor <button class="btn sm" data-act="addLabor" data-id="${j.id}">+ Hours</button></h3>
    ${j.labor.length?j.labor.map(l=>`<div class="line"><div class="l1">${l.desc?esc(l.desc):'Labor'}</div><button class="btn sm bad" data-act="delLabor" data-id="${j.id}" data-l="${l.id}" aria-label="Remove labor line">Remove</button>
@@ -1232,14 +1232,16 @@ function jobSheet(id){
     <div class="btnrow"><button class="btn pri" data-act="openDoc" data-id="${j.id}">${inv.no?'View invoice':'Create invoice'}</button></div></div>`:''}
 
   <button class="btn" data-act="openHist" data-id="${j.id}">Previous work on this vehicle (${S.jobs.filter(x=>x.vehicleId===j.vehicleId&&x.id!==j.id).length})</button>
-  ${fld('Work done and notes',area('job:'+j.id,'notes',j.notes,'What was done, what you found'))}
+  ${j.fresh?'':fld('Work done and notes',area('job:'+j.id,'notes',j.notes,'What was done, what you found'))}
   ${j.fresh?`<button class="btn pri camshot" data-act="addOpen" data-id="${j.id}">${j.status==='open'?'Add to Open Jobs':'Add to Upcoming Jobs'}</button>`:''}
   ${isTech()&&j.status==='open'&&!j.fresh?`<button class="btn pri" data-act="finishJob" data-id="${j.id}">Completed</button>`:''}
   ${isTech()&&j.status==='ready'?`<div class="banner"><span>This job is completed.</span><button class="btn sm" data-act="setStatus" data-id="${j.id}" data-s="open">Reopen</button></div>`:''}
+  ${!isTech()&&!j.fresh&&j.status==='upcoming'?`<button class="btn pri camshot" data-act="saveClose">Save and close</button>`:''}
   ${adm?`<button class="btn bad" data-act="delJob" data-id="${j.id}">Delete job</button>`:''}
   </div>`;
 }
 ACT.scanOdo=b=>{const j=job(b.dataset.id),f=b.dataset.f;startScan('odo',v=>{j[f]=v;persistNow();refresh();toast('Mileage '+fmtNum(v)+' saved')})};
+ACT.saveClose=()=>{persistNow();popSheet();toast('Saved')};
 ACT.addOpen=b=>{const j=job(b.dataset.id);if(!j)return;delete j.fresh;persistNow();popSheet();if(isTech())ui.tab=j.status==='open'?'open':'upcoming';else ui.jobFilter=j.status==='open'?'active':'upcoming';refresh();toast(j.status==='open'?'Added to Open Jobs':'Added to Upcoming Jobs')};
 ACT.finishJob=b=>{const j=job(b.dataset.id);if(!j)return;delete j.fresh;j.status='ready';persistNow();popSheet();refresh();toast('Moved to Completed')};
 ACT.setStatus=b=>{
@@ -1426,7 +1428,7 @@ function vehSheet(id){
   const v=veh(id),c=cust(v.customerId),js=S.jobs.filter(j=>j.vehicleId===id).sort((a,b)=>b.created.localeCompare(a.created)),m=vehMiles(id);
   return shHead(esc(vehTitle(v)))+`<div class="sheet-b">
   <div class="card"><b>${esc(c?c.name:'')}</b><div class="sub">${m?'Last mileage '+fmtNum(m):'No mileage on file'}</div></div>
-  <div class="btnrow"><button class="btn pri" data-act="vehNewJob" data-id="${id}">Start job for this vehicle</button></div>
+  <div class="btnrow"><button class="btn pri" data-act="vehNewJob" data-id="${id}">Add job for this vehicle</button></div>
   ${fld('VIN',inp('veh:'+id,'vin',v.vin,{fmt:'vin',max:17,cap:1}))}
   <div class="btnrow"><button class="btn sm" data-act="vehScanVin" data-id="${id}">Scan VIN</button><button class="btn sm" data-act="vehDecode" data-id="${id}">Look up from VIN</button></div>
   <div class="g2">${fld('Year',inp('veh:'+id,'year',v.year,{mode:'numeric'}))}${fld('Make',inp('veh:'+id,'make',v.make))}</div>
