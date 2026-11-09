@@ -434,7 +434,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.6.0',APP_DATE='2026-11-08';
+const APP_VERSION='1.6.1',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1116,7 +1116,7 @@ function makeJob(vid){
   const v=veh(vid),m=me();
   const j={id:uid(),no:S.nextJob++,customerId:v.customerId,vehicleId:vid,status:m&&m.role==='tech'?'open':'upcoming',created:nowStamp(),createdBy:m?m.id:'',mileageIn:'',
     concern:'',notes:'',invNotes:'',assigned:m&&m.role==='tech'?[m.id]:[],labor:[],parts:[],inspection:{items:{},done:false},invoice:{}};
-  if(j.status==='open')j.fresh=true;
+  j.fresh=true;
   S.jobs.push(j);persistNow();stack.length=0;openJobSheet(j.id);render();toast('Job #'+j.no+' started');
 }
 
@@ -1203,14 +1203,14 @@ function jobSheet(id){
      ${isTech()?'':`<button class="btn sm" data-act="openVeh" data-id="${v?v.id:''}">Vehicle</button>`}</div>
     <div><b>${esc(vehTitle(v))}</b>${v&&v.trim?' '+esc(v.trim):''}<div class="vin">${esc(v?v.vin:'')}${v&&v.plate?' &middot; '+esc(v.plate):''}</div></div>
   </div>
-  ${j.status==='upcoming'?`<div class="banner"><span>Upcoming job. Start it when you begin work.</span><button class="btn sm pri" data-act="setStatus" data-id="${j.id}" data-s="open">Start job</button></div>`:''}
+  ${j.status==='upcoming'&&!j.fresh?`<div class="banner"><span>Upcoming job. Start it when you begin work.</span><button class="btn sm pri" data-act="setStatus" data-id="${j.id}" data-s="open">Start job</button></div>`:''}
   ${!String(j.mileageIn).trim()?`<div class="banner"><span>Mileage not recorded yet.</span><button class="btn sm pri" data-act="scanOdo" data-id="${j.id}" data-f="mileageIn">Scan odometer</button></div>`:''}
   <div class="sec">${fld('Mileage',inp('job:'+j.id,'mileageIn',j.mileageIn,{mode:'numeric'}))}<button class="btn sm" data-act="scanOdo" data-id="${j.id}" data-f="mileageIn">${ICON.cam.replace('<svg','<svg width="16" height="16"')} Scan odometer</button>${last&&last!==num(j.mileageIn)?`<div class="sub">Last on file: ${fmtNum(last)}</div>`:''}</div>
   ${isTech()?'':`<div class="step" role="group" aria-label="Job status">${STATUS.map(s=>`<button data-act="setStatus" data-id="${j.id}" data-s="${s[0]}" ${j.status===s[0]?'aria-current="true"':''}>${s[1]}</button>`).join('')}</div>`}
   ${fld('Customer concern',area('job:'+j.id,'concern',j.concern,'What the customer says is wrong'))}
   ${isTech()?'':`<div class="sec"><h3>Assigned</h3><div class="chips">${crew().map(s=>`<button class="chip" aria-pressed="${j.assigned.includes(s.id)}" data-act="toggleAssign" data-id="${j.id}" data-s="${s.id}">${esc(s.name)}</button>`).join('')}</div></div>`}
 
-  <div class="card sec"><h3>Labor <button class="btn sm" data-act="addLabor" data-id="${j.id}">+ Hours</button></h3>
+  ${j.fresh?'':`  <div class="card sec"><h3>Labor <button class="btn sm" data-act="addLabor" data-id="${j.id}">+ Hours</button></h3>
    ${j.labor.length?j.labor.map(l=>`<div class="line"><div class="l1">${l.desc?esc(l.desc):'Labor'}</div><button class="btn sm bad" data-act="delLabor" data-id="${j.id}" data-l="${l.id}" aria-label="Remove labor line">Remove</button>
     <div class="ctl">${fld('Hours',hoursSel('lab:'+j.id+':'+l.id,l.hours))}${fld('Rate',inp('lab:'+j.id+':'+l.id,'rate',l.rate,{mode:'decimal',live:1}),'price')}<div class="price num">${money(num(l.hours)*num(l.rate))}</div></div></div>`).join(''):'<div class="sub">No hours yet. Tap + Hours.</div>'}</div>
 
@@ -1223,22 +1223,24 @@ function jobSheet(id){
   <div class="card sec"><h3>Inspection <button class="btn sm" data-act="openInsp" data-id="${j.id}">${Object.keys(ins).length?'Open':'Start'}</button></h3>
    ${Object.keys(ins).length?`<div class="row"><span class="pill ok">${cnt.ok} OK</span><span class="pill watch">${cnt.watch} Watch</span><span class="pill bad">${cnt.bad} Bad</span>${j.inspection.done?'<span class="sub">Complete</span>':''}</div>`:'<div class="sub">Multi-point checklist with photos.</div>'}</div>
 
+`}
+
   <div class="card sec"><h3>Photos ${''}</h3>${photoGrid(photos)}<div class="btnrow">${photoBtns(j.id,'photo','')}</div></div>
 
-  ${px?`   <div class="card sec"><h3>Invoice</h3>
+  ${px&&!j.fresh?`   <div class="card sec"><h3>Invoice</h3>
     <div class="row">${inv.no?`<span class="pill ${inv.paid?'paid':'invoiced'}">${inv.paid?'Paid '+fmtDate(inv.paidDate)+(inv.method?' ('+esc(inv.method)+')':''):'Invoice #'+inv.no+' unpaid'}</span>`:'<span class="sub">Not invoiced yet.</span>'}</div>
     <div class="btnrow"><button class="btn pri" data-act="openDoc" data-id="${j.id}">${inv.no?'View invoice':'Create invoice'}</button></div></div>`:''}
 
   <button class="btn" data-act="openHist" data-id="${j.id}">Previous work on this vehicle (${S.jobs.filter(x=>x.vehicleId===j.vehicleId&&x.id!==j.id).length})</button>
   ${fld('Work done and notes',area('job:'+j.id,'notes',j.notes,'What was done, what you found'))}
-  ${isTech()&&j.status==='open'&&j.fresh?`<button class="btn pri camshot" data-act="addOpen" data-id="${j.id}">Add to Open Jobs</button>`:''}
+  ${j.fresh?`<button class="btn pri camshot" data-act="addOpen" data-id="${j.id}">${j.status==='open'?'Add to Open Jobs':'Add to Upcoming Jobs'}</button>`:''}
   ${isTech()&&j.status==='open'&&!j.fresh?`<button class="btn pri" data-act="finishJob" data-id="${j.id}">Completed</button>`:''}
   ${isTech()&&j.status==='ready'?`<div class="banner"><span>This job is completed.</span><button class="btn sm" data-act="setStatus" data-id="${j.id}" data-s="open">Reopen</button></div>`:''}
   ${adm?`<button class="btn bad" data-act="delJob" data-id="${j.id}">Delete job</button>`:''}
   </div>`;
 }
 ACT.scanOdo=b=>{const j=job(b.dataset.id),f=b.dataset.f;startScan('odo',v=>{j[f]=v;persistNow();refresh();toast('Mileage '+fmtNum(v)+' saved')})};
-ACT.addOpen=b=>{const j=job(b.dataset.id);if(!j)return;delete j.fresh;persistNow();popSheet();ui.tab='open';refresh();toast('Added to Open Jobs')};
+ACT.addOpen=b=>{const j=job(b.dataset.id);if(!j)return;delete j.fresh;persistNow();popSheet();if(isTech())ui.tab=j.status==='open'?'open':'upcoming';else ui.jobFilter=j.status==='open'?'active':'upcoming';refresh();toast(j.status==='open'?'Added to Open Jobs':'Added to Upcoming Jobs')};
 ACT.finishJob=b=>{const j=job(b.dataset.id);if(!j)return;delete j.fresh;j.status='ready';persistNow();popSheet();refresh();toast('Moved to Completed')};
 ACT.setStatus=b=>{
   const j=job(b.dataset.id),s=b.dataset.s;
