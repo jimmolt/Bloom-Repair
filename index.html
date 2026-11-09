@@ -431,7 +431,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.5.0',APP_DATE='2026-11-08';
+const APP_VERSION='1.5.1',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1110,6 +1110,7 @@ function makeJob(vid){
   const v=veh(vid),m=me();
   const j={id:uid(),no:S.nextJob++,customerId:v.customerId,vehicleId:vid,status:m&&m.role==='tech'?'open':'upcoming',created:nowStamp(),createdBy:m?m.id:'',mileageIn:'',
     concern:'',notes:'',invNotes:'',assigned:m&&m.role==='tech'?[m.id]:[],labor:[],parts:[],inspection:{items:{},done:false},invoice:{}};
+  if(j.status==='open')j.fresh=true;
   S.jobs.push(j);persistNow();stack.length=0;openJobSheet(j.id);render();toast('Job #'+j.no+' started');
 }
 
@@ -1224,13 +1225,15 @@ function jobSheet(id){
 
   <button class="btn" data-act="openHist" data-id="${j.id}">Previous work on this vehicle (${S.jobs.filter(x=>x.vehicleId===j.vehicleId&&x.id!==j.id).length})</button>
   ${fld('Work done and notes',area('job:'+j.id,'notes',j.notes,'What was done, what you found'))}
-  ${isTech()&&j.status==='open'?`<button class="btn pri" data-act="finishJob" data-id="${j.id}">Completed</button>`:''}
+  ${isTech()&&j.status==='open'&&j.fresh?`<button class="btn pri camshot" data-act="addOpen" data-id="${j.id}">Add to Open Jobs</button>`:''}
+  ${isTech()&&j.status==='open'&&!j.fresh?`<button class="btn pri" data-act="finishJob" data-id="${j.id}">Completed</button>`:''}
   ${isTech()&&j.status==='ready'?`<div class="banner"><span>This job is completed.</span><button class="btn sm" data-act="setStatus" data-id="${j.id}" data-s="open">Reopen</button></div>`:''}
   ${adm?`<button class="btn bad" data-act="delJob" data-id="${j.id}">Delete job</button>`:''}
   </div>`;
 }
 ACT.scanOdo=b=>{const j=job(b.dataset.id),f=b.dataset.f;startScan('odo',v=>{j[f]=v;persistNow();refresh();toast('Mileage '+fmtNum(v)+' saved')})};
-ACT.finishJob=b=>{const j=job(b.dataset.id);if(!j)return;j.status='ready';persistNow();popSheet();refresh();toast('Moved to Completed')};
+ACT.addOpen=b=>{const j=job(b.dataset.id);if(!j)return;delete j.fresh;persistNow();popSheet();ui.tab='open';refresh();toast('Added to Open Jobs')};
+ACT.finishJob=b=>{const j=job(b.dataset.id);if(!j)return;delete j.fresh;j.status='ready';persistNow();popSheet();refresh();toast('Moved to Completed')};
 ACT.setStatus=b=>{
   const j=job(b.dataset.id),s=b.dataset.s;
   if((s==='invoiced'||s==='paid')&&(isTech()||!canSeePrices())){toast('Only the office can invoice');return}
