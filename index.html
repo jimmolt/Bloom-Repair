@@ -254,7 +254,10 @@ const fmtDate=s=>s?dObj(s.slice(0,10)).toLocaleDateString('en-US',{month:'short'
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
 const slug=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const fmtPhone=s=>{const d=String(s||'').replace(/\D/g,'').replace(/^1(?=\d{10})/,'').slice(0,10);
-  if(d.length<=3)return d;if(d.length<=6)return '('+d.slice(0,3)+') '+d.slice(3);return '('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6)};
+  if(!d.length)return '';if(d.length<=3)return '('+d;if(d.length<=6)return '('+d.slice(0,3)+')'+d.slice(3);return '('+d.slice(0,3)+')'+d.slice(3,6)+'-'+d.slice(6)};
+/* capitalize the first letter of every word; letters already typed in capitals are left alone (McDonald, DeWitt) */
+const titleCase=s=>String(s||'').replace(/(^|[\s\-\/(])([a-z])/g,(m,a,b)=>a+b.toUpperCase());
+const custAddr=c=>{const l1=String(c&&c.address||'').trim(),l2=[String(c&&c.city||'').trim(),[String(c&&c.state||'').trim(),String(c&&c.zip||'').trim()].filter(Boolean).join(' ')].filter(Boolean).join(', ');return [l1,l2].filter(Boolean)};
 
 /* ---------- VIN ---------- */
 const TRANSLIT={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
@@ -431,7 +434,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.5.1',APP_DATE='2026-11-08';
+const APP_VERSION='1.6.0',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -551,14 +554,15 @@ function onField(e){
   const el=e.target;if(!el.dataset||!el.dataset.f||!el.dataset.m)return;
   const o=target(el.dataset.m);if(!o)return;
   let v=el.type==='checkbox'?el.checked:el.value;
-  if(el.dataset.fmt==='phone'){v=fmtPhone(v);if(e.type==='change')el.value=v}
-  if(el.dataset.fmt==='vin'){v=cleanVin(v);if(el.value!==v)el.value=v}
-  o[el.dataset.f]=v;persist();
+  const F=el.dataset.fmt;
+  if(F==='phone')v=fmtPhone(v);else if(F==='vin')v=cleanVin(v);else if(F==='name')v=titleCase(v);else if(F==='state')v=String(v).toUpperCase().replace(/[^A-Z]/g,'').slice(0,2);else if(F==='zip')v=String(v).replace(/[^0-9-]/g,'').slice(0,10);
+  if(F&&el.value!==v){const pos=el.selectionStart,sig=s=>s.replace(/[^A-Za-z0-9]/g,'').length;let n=pos==null?null:sig(el.value.slice(0,pos));el.value=v;if(n!=null&&document.activeElement===el){let i=0,k=0;while(i<v.length&&k<n){if(/[A-Za-z0-9]/.test(v[i]))k++;i++}try{el.setSelectionRange(i,i)}catch(x){}}}
+  o[el.dataset.f]=v;if(e.type==='change')persistNow();else persist();
   if(el.dataset.live)live();
   if(e.type==='change'&&el.dataset.redraw)refresh();
 }
 document.addEventListener('change',onField);
-document.addEventListener('input',e=>{if(e.target.dataset&&(e.target.dataset.live||e.target.dataset.fmt==='vin'))onField(e)});
+document.addEventListener('input',e=>{if(e.target.dataset&&e.target.dataset.m&&e.target.dataset.f&&e.target.type!=='checkbox')onField(e)});
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
   const a=ACT[b.dataset.act];if(a)a(b,e);
@@ -568,9 +572,9 @@ let liveFn=null;const live=()=>{if(liveFn)liveFn()};
 /* ---------- sample data ---------- */
 function seedDemo(){
   const t=today(),ago=n=>addDays(t,-n);
-  const c1={id:'c1',demo:1,name:'Dave Henderson',phone:'(402) 555-0142',email:'dave@example.com',address:'412 Elm St',taxExempt:false,notes:''};
-  const c2={id:'c2',demo:1,name:'Maria Lopez',phone:'(402) 555-0177',email:'maria@example.com',address:'88 County Rd 12',taxExempt:false,notes:''};
-  const c3={id:'c3',demo:1,name:'Platte Valley Farms',phone:'(402) 555-0190',email:'',address:'Rural Route 2',taxExempt:true,notes:'Farm account, tax exempt.'};
+  const c1={id:'c1',demo:1,name:'Dave Henderson',phone:'(402)555-0142',email:'dave@example.com',address:'412 Elm St',city:'Albion',state:'NE',zip:'68620',taxExempt:false,notes:''};
+  const c2={id:'c2',demo:1,name:'Maria Lopez',phone:'(402)555-0177',email:'maria@example.com',address:'88 County Rd 12',city:'Albion',state:'NE',zip:'68620',taxExempt:false,notes:''};
+  const c3={id:'c3',demo:1,name:'Platte Valley Farms',phone:'(402)555-0190',email:'',address:'Rural Route 2',city:'Albion',state:'NE',zip:'68620',taxExempt:true,notes:'Farm account, tax exempt.'};
   const v1={id:'v1',demo:1,customerId:'c1',vin:'1HGCM82633A004352',year:'2003',make:'Honda',model:'Accord',trim:'EX',plate:'ABC 123',reminders:[]};
   const v2={id:'v2',demo:1,customerId:'c2',vin:'2C4RC1BG1RR204761',year:'2024',make:'Chrysler',model:'Pacifica',trim:'',plate:'',reminders:[]};
   const v3={id:'v3',demo:1,customerId:'c3',vin:'1FTFW1ET9DFC10312',year:'2013',make:'Ford',model:'F-150',trim:'',plate:'FARM 7',reminders:[]};
@@ -993,6 +997,10 @@ function startCropView(host){
 
 /* ---------- small form helpers ---------- */
 const fld=(label,inner,cls)=>`<label class="field ${cls||''}"><span>${label}</span>${inner}</label>`;
+/* the customer fields, shared by the Customers tab and New job. Every field saves as it is edited. */
+const custFields=id=>{const c=cust(id),m='cust:'+id;return fld('Name',inp(m,'name',c.name,{fmt:'name'}))+`<div class="g2">${fld('Phone',inp(m,'phone',c.phone,{type:'tel',fmt:'phone',mode:'tel'}))}${fld('Email',inp(m,'email',c.email,{type:'email'}))}</div>`+fld('Street address',inp(m,'address',c.address,{fmt:'name'}))+fld('City',inp(m,'city',c.city,{fmt:'name'}))+fld('State',inp(m,'state',c.state,{fmt:'state',max:2,cap:1}))+fld('ZIP',inp(m,'zip',c.zip,{fmt:'zip',mode:'numeric',max:10}))};
+const newCustRec=()=>{const c={id:uid(),name:'',phone:'',email:'',address:'',city:'',state:'',zip:'',taxExempt:false,notes:''};S.customers.push(c);persistNow();return c};
+const pruneBlankCusts=()=>{S.customers=S.customers.filter(c=>[c.name,c.phone,c.email,c.address,c.city,c.state,c.zip,c.notes].some(x=>String(x||'').trim())||S.vehicles.some(v=>v.customerId===c.id)||S.jobs.some(j=>j.customerId===c.id))};
 function inp(m,f,val,o){o=o||{};
   return `<input type="${o.type||'text'}" data-m="${m}" data-f="${f}" value="${esc(val)}"${o.ph?` placeholder="${esc(o.ph)}"`:''}${o.live?' data-live="1"':''}${o.redraw?' data-redraw="1"':''}${o.fmt?` data-fmt="${o.fmt}"`:''}${o.mode?` inputmode="${o.mode}"`:''}${o.cap?' autocapitalize="characters"':''}${o.max?` maxlength="${o.max}"`:''} autocomplete="off">`}
 const area=(m,f,val,ph)=>`<textarea data-m="${m}" data-f="${f}" placeholder="${esc(ph||'')}">${esc(val)}</textarea>`;
@@ -1024,7 +1032,7 @@ const findCustomers=q=>{
 
 /* ---------- New job ---------- */
 let NJ={};
-ACT.newJob=()=>{if(!me())return signIn();NJ={};stack.length=0;sheet(njHome)};
+ACT.newJob=()=>{if(!me())return signIn();pruneBlankCusts();NJ={};stack.length=0;sheet(njHome)};
 function njHome(){return shHead('New job')+`<div class="sheet-b">
  <button class="bigbtn" data-act="njScan">${ICON.cam}<div><b>Scan a VIN</b><span class="sub">Photo of the windshield or door post</span></div></button>
  <div class="card sec"><label class="field"><span>Or type a VIN</span><input id="njVin" type="text" maxlength="17" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="17 character VIN" data-fmt="vin"></label>
@@ -1058,7 +1066,7 @@ function njVehicleForm(){
     <div class="chips" role="group" aria-label="Customer"><button class="chip" aria-pressed="${mode==='existing'}" data-act="njMode" data-m="existing">Existing customer</button><button class="chip" aria-pressed="${mode==='new'}" data-act="njMode" data-m="new">New customer</button></div>
     ${mode==='existing'?(sel?`<div class="card between"><div><b>${esc(sel.name)}</b><div class="sub">${esc(sel.phone)}</div></div><button class="btn sm" data-act="njUnpick">Change</button></div>`:
       `<input id="njQ2" type="search" placeholder="Search name, phone, plate or VIN" oninput="njFilter2()" autocomplete="off"><div id="njList2" class="sec">${njList2('')}</div>`):
-      `<div class="g2">${fld('Customer name',inp('nj','cname',NJ.cname||''))}${fld('Phone',inp('nj','cphone',NJ.cphone||'',{type:'tel',fmt:'phone'}))}</div>`}</div>`;
+      (NJ.newCid&&cust(NJ.newCid)?custFields(NJ.newCid):'')}</div>`;
   return shHead(vo?'Add vehicle':'New vehicle')+`<div class="sheet-b">
   <div class="card sec"><div class="sub">${NJ.decoding?'Looking up vehicle details from the VIN...':NJ.decoded?'Details filled in from the VIN. Check them.':'Could not look up this VIN. Fill in the details by hand.'}</div>
    ${fld('VIN',inp('nj','vin',NJ.vin||'',{fmt:'vin',max:17,cap:1}))}
@@ -1071,7 +1079,7 @@ function njVehicleForm(){
 function njList2(q){const l=findCustomers(q);
   return l.length?l.slice(0,30).map(c=>`<button class="cand" data-act="njSetCust" data-id="${c.id}"><div><b class="nm">${esc(c.name)}</b><div class="sub">${esc(c.phone)} &middot; ${S.vehicles.filter(v=>v.customerId===c.id).length} vehicles</div></div></button>`).join(''):'<div class="empty">No match. Choose New customer to add them.</div>'}
 function njFilter2(){const e=$('#njList2');if(e)e.innerHTML=njList2($('#njQ2').value)}
-ACT.njMode=b=>{NJ.custMode=b.dataset.m;if(NJ.custMode==='new')NJ.customerId='';refresh()};
+ACT.njMode=b=>{NJ.custMode=b.dataset.m;if(NJ.custMode==='new'){NJ.customerId='';if(!NJ.newCid||!cust(NJ.newCid))NJ.newCid=newCustRec().id}refresh()};
 ACT.njSetCust=b=>{NJ.customerId=b.dataset.id;refresh()};
 ACT.njUnpick=()=>{NJ.customerId='';refresh()};
 ACT.njRedecode=async()=>{const d=await decodeVin(NJ.vin);if(!d){toast('Could not look that up. Fill it in by hand.');return}Object.assign(NJ,d);refresh()};
@@ -1079,8 +1087,7 @@ ACT.njSave=()=>{
   if(!NJ.vin){toast('Enter the VIN first');return}
   let cid=NJ.customerId;
   if(!cid&&NJ.custMode==='existing'&&!NJ.lockCust){toast('Pick a customer, or choose New customer');return}
-  if(!cid){if(!String(NJ.cname||'').trim()){toast('Enter the customer name');return}
-    const c={id:uid(),name:NJ.cname.trim(),phone:NJ.cphone||'',email:'',address:'',taxExempt:false,notes:''};S.customers.push(c);cid=c.id}
+  if(!cid){const nc=NJ.newCid&&cust(NJ.newCid);if(!nc||!String(nc.name||'').trim()){toast('Enter the customer name');return}cid=nc.id;NJ.newCid=''}
   const v={id:uid(),customerId:cid,vin:NJ.vin,year:NJ.year||'',make:NJ.make||'',model:NJ.model||'',trim:NJ.trim||'',plate:NJ.plate||'',reminders:[]};
   S.vehicles.push(v);persistNow();
   if(NJ.mode==='vehicleOnly'){const back=NJ.afterSave;stack.length=0;drawSheet();render();toast('Vehicle added');if(back)back(v.id);return}
@@ -1101,11 +1108,10 @@ function njVehiclesSheet(){
     <button class="btn pri" data-act="njTypeVin" data-src="njVin2">Add vehicle and start job</button></div></div></div>`}
 ACT.njScan2=()=>startScan('vin',afterVin);
 ACT.njPickVeh=b=>makeJob(b.dataset.id);
-ACT.njNewCust=()=>sheet(()=>shHead('New customer')+`<div class="sheet-b">${fld('Name',inp('nj','cname',NJ.cname||''))}${fld('Phone',inp('nj','cphone',NJ.cphone||'',{type:'tel',fmt:'phone'}))}
-  <button class="btn pri" data-act="njMakeCust">Continue</button></div>`);
-ACT.njMakeCust=()=>{if(!String(NJ.cname||'').trim()){toast('Enter the name');return}
-  const c={id:uid(),name:NJ.cname.trim(),phone:NJ.cphone||'',email:'',address:'',taxExempt:false,notes:''};S.customers.push(c);persistNow();
-  NJ.customerId=c.id;NJ.lockCust=true;NJ.cname='';NJ.cphone='';sheet(njVehiclesSheet)};
+ACT.njNewCust=()=>{if(!NJ.newCid||!cust(NJ.newCid))NJ.newCid=newCustRec().id;const id=NJ.newCid;
+  sheet(()=>shHead('New customer')+`<div class="sheet-b">${custFields(id)}<button class="btn pri" data-act="njMakeCust">Continue</button></div>`)};
+ACT.njMakeCust=()=>{const c=cust(NJ.newCid);if(!c||!String(c.name||'').trim()){toast('Enter the name');return}
+  persistNow();NJ.customerId=c.id;NJ.lockCust=true;NJ.newCid='';sheet(njVehiclesSheet)};
 function makeJob(vid){
   const v=veh(vid),m=me();
   const j={id:uid(),no:S.nextJob++,customerId:v.customerId,vehicleId:vid,status:m&&m.role==='tech'?'open':'upcoming',created:nowStamp(),createdBy:m?m.id:'',mileageIn:'',
@@ -1284,7 +1290,7 @@ function docSheet(){
   <div class="paper">
    <div class="meta" style="margin-top:0"><div><h1>${esc(st.shopName)}</h1><div>${esc(st.address)}${st.phone?'<br>'+esc(st.phone):''}</div></div>
     <div style="text-align:right"><h1>INVOICE</h1><div class="mono">#${inv.no}</div><div>${fmtDate(inv.date)}</div></div></div>
-   <div class="meta"><div><b>Customer</b><br>${esc(c.name)}<br>${esc(c.phone)}${c.address?'<br>'+esc(c.address):''}</div>
+   <div class="meta"><div><b>Customer</b><br>${esc(c.name)}<br>${esc(c.phone)}${custAddr(c).map(l=>'<br>'+esc(l)).join('')}</div>
     <div><b>Vehicle</b><br>${esc(vehTitle(v))} ${esc(v.trim||'')}<br><span class="mono">${esc(v.vin)}</span>${v.plate?'<br>Plate '+esc(v.plate):''}${j.mileageIn?'<br>Mileage '+fmtNum(num(j.mileageIn)):''}</div></div>
    ${j.concern?`<p><b>Concern:</b> ${esc(j.concern)}</p>`:''}
    <table><thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${rows||'<tr><td colspan="4">No lines yet.</td></tr>'}</tbody></table>
@@ -1393,13 +1399,12 @@ function vCustomers(){
    return `<div class="card tap" data-act="openCust" data-id="${c.id}" role="button" tabindex="0"><div class="between"><div class="title-line">${esc(c.name)}</div>${open?`<span class="pill open">${open} open</span>`:''}</div>
     <div class="sub">${esc(c.phone)}${c.phone?' &middot; ':''}${vs.length} vehicle${vs.length===1?'':'s'}${vs.length?': '+esc(vs.slice(0,3).map(vehTitle).join(', ')):''}</div></div>`}).join(''):'<div class="empty">No customers yet.</div>'}`;
 }
-ACT.newCust=()=>{const c={id:uid(),name:'',phone:'',email:'',address:'',taxExempt:false,notes:''};S.customers.push(c);persistNow();sheet(()=>custSheet(c.id));render()};
+ACT.newCust=()=>{const c=newCustRec();sheet(()=>custSheet(c.id));render()};
 ACT.openCust=b=>sheet(()=>custSheet(b.dataset.id));
 function custSheet(id){
   const c=cust(id),vs=S.vehicles.filter(v=>v.customerId===id),js=S.jobs.filter(j=>j.customerId===id).sort((a,b)=>b.created.localeCompare(a.created));
   return shHead(esc(c.name||'New customer'))+`<div class="sheet-b">
-  ${fld('Name',inp('cust:'+id,'name',c.name))}<div class="g2">${fld('Phone',inp('cust:'+id,'phone',c.phone,{type:'tel',fmt:'phone'}))}${fld('Email',inp('cust:'+id,'email',c.email,{type:'email'}))}</div>
-  ${fld('Address',inp('cust:'+id,'address',c.address))}
+  ${custFields(id)}
   <label class="chk"><input type="checkbox" data-m="cust:${id}" data-f="taxExempt" ${c.taxExempt?'checked':''}> Tax exempt</label>
   ${fld('Notes',area('cust:'+id,'notes',c.notes))}
   <div class="sec"><h3>Vehicles <button class="btn sm" data-act="custAddVeh" data-id="${id}">+ Vehicle</button></h3>
@@ -1532,7 +1537,7 @@ document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.m==
 /* ---------- boot ---------- */
 (async function boot(){
   S=load();let fresh=false;
-  if(S)for(const j of S.jobs)if(j.status==='estimate')j.status='open';
+  if(S){for(const j of S.jobs)if(j.status==='estimate')j.status='open';for(const c of S.customers){c.city=c.city||'';c.state=c.state||'';c.zip=c.zip||'';c.address=c.address||''}pruneBlankCusts()}
   if(!S){S=defaults();fresh=true}
   else{const d=defaults();S.settings=Object.assign(d.settings,S.settings)}
   idb=await openIDB();P=await idbAll();
