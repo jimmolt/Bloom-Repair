@@ -206,6 +206,8 @@ body.tech .price{display:none!important}
 .camv{position:relative;width:100%;height:min(58vh,460px);background:#000;border-radius:14px;overflow:hidden}
 .camv video{width:100%;height:100%;object-fit:cover;display:block}
 .camframe{position:absolute;border:3px solid #fff;border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.55);pointer-events:none}
+.camrot{display:none;position:absolute;inset:0;z-index:2;background:rgba(0,0,0,.82);color:#fff;font-weight:700;font-size:17px;text-align:center;align-items:center;justify-content:center;padding:20px}
+@media (orientation:landscape) and (max-height:500px) and (pointer:coarse){.camrot{display:flex}}
 
 </style>
 </head>
@@ -423,7 +425,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.3.0',APP_DATE='2026-11-08';
+const APP_VERSION='1.3.1',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -881,7 +883,7 @@ function drawScanVin(){
     ${SC.cands.length>1?`<div class="sub">Other readings:</div>${SC.cands.slice(1).map((c,i)=>`<button class="cand" data-act="scanFill" data-i="${i+1}"><b>${esc(c.label)}</b><span class="sub">${esc(c.note||'')}</span></button>`).join('')}`:''}
     <button class="btn pri" data-act="scanTyped">${T.acc}</button>
     <div class="btnrow"><button class="btn" data-act="scanRecrop">Crop again</button>${retake||files('Retake photo')}</div>`;
-  if(st==='cam')body=`<div class="camv" id="camv"><video playsinline muted autoplay></video><div class="camframe" id="camframe"></div></div>
+  if(st==='cam')body=`<div class="camv" id="camv"><video playsinline muted autoplay></video><div class="camframe" id="camframe"></div><div class="camrot">Turn your phone upright (portrait) to take the photo</div></div>
     <p class="sub">Hold the phone upright and line up ${T.what} inside the box so the text is level and fills it. Tap the screen to focus.</p>
     <button class="btn pri" data-act="camShot">Take photo</button><button class="btn" data-act="camCancel">Cancel</button>`;
   s.innerHTML=`<div class="shade" data-act="scanClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${T.title}"><div class="sheet-h"><button class="btn sm" data-act="scanClose">Close</button><h2>${T.title}</h2></div><div class="sheet-b">${body}${st==='pick'&&SC.msg?`<div class="sub">${esc(SC.msg)}</div>`:''}</div></div>`;
@@ -912,6 +914,7 @@ async function camStart(){
 ACT.scanCam=()=>{SC.step='cam';SC.cands=[];SC.msg='';drawScan()};
 ACT.camCancel=()=>{camStop();SC.step='pick';drawScan()};
 ACT.camShot=()=>{
+  if(matchMedia('(orientation:landscape) and (max-height:500px) and (pointer:coarse)').matches)return;
   const v=$('#camv video'),F=SC.frame;if(!v||!F||!v.videoWidth)return;
   const vw=v.videoWidth,vh=v.videoHeight,k=Math.max(F.cw/vw,F.ch/vh),ox=(vw*k-F.cw)/2,oy=(vh*k-F.ch)/2;
   const full=document.createElement('canvas'),m=Math.min(1,2400/Math.max(vw,vh));full.width=Math.round(vw*m);full.height=Math.round(vh*m);
