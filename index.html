@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#003478">
 <title>Bloom Repair</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,7 @@
 /* Layout concept: one-hand shop tool. Graphite header, tab row, card lists, full-height sheets for jobs and scans. */
 :root{
   --bg:#f4f6f8;--surface:#ffffff;--surface2:#e2e7ea;--ink:#1b2025;--muted:#59646d;--line:#cdd5da;
-  --head:#ffffff;--head-ink:#1b2025;--brand:#c94a14;--brand-ink:#ffffff;--brand-soft:#fbe2d4;
+  --head:#003478;--head-ink:#ffffff;--brand:#003478;--brand-ink:#ffffff;--brand-soft:#dce6f5;
   --est:#8a5a00;--est-soft:#fbebc8;--open:#235ea6;--open-soft:#dbe8f7;--ready:#11706a;--ready-soft:#d2eeea;
   --inv:#6a47a6;--inv-soft:#e8e0f6;--paid:#1b7547;--paid-soft:#d6efe0;--bad:#b3261e;--bad-soft:#fbdedb;
   --watch:#8a5a00;--watch-soft:#fbebc8;
@@ -101,7 +101,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,.btn:focus-visib
 .chips{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 .chips::-webkit-scrollbar{display:none}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap;min-height:36px}
-.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip[aria-pressed=true]{background:var(--brand);color:#fff;border-color:var(--brand)}
 .dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:800;color:#1b1b1b;flex:none;border:2px solid var(--surface)}
 .dots{display:flex}.dots .dot+.dot{margin-left:-7px}
 .empty{padding:26px 14px;text-align:center;color:var(--muted)}
@@ -136,7 +136,7 @@ body.tech .price{display:none!important}
 .sheet-b>*{min-width:0}
 .step{min-height:40px;display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
 .step button{flex:1 0 auto;border:1px solid var(--line);background:var(--surface);padding:8px 10px;font-weight:700;font-size:13px;cursor:pointer;border-radius:8px;min-height:38px}
-.step button[aria-current=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.step button[aria-current=true]{background:var(--brand);color:#fff;border-color:var(--brand)}
 
 /* job card lines */
 .line{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 0;border-top:1px solid var(--line)}
@@ -208,6 +208,12 @@ body.tech .price{display:none!important}
 .camframe{position:absolute;border:3px solid #fff;border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.55);pointer-events:none}
 .camrot{display:none;position:absolute;inset:0;z-index:2;background:rgba(0,0,0,.82);color:#fff;font-weight:700;font-size:17px;text-align:center;align-items:center;justify-content:center;padding:20px}
 @media (orientation:landscape) and (max-height:500px) and (pointer:coarse){.camrot{display:flex}}
+
+.top{border-bottom:0}
+.brand svg{color:#fff;fill:#fff}
+.top .btn.pri{background:#fff;color:#003478;border-color:#fff}
+.top .who{border-color:rgba(255,255,255,.5)}
+.btn.camshot{min-height:68px;font-size:21px;border-radius:14px;letter-spacing:.01em}
 
 </style>
 </head>
@@ -425,7 +431,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.4.0',APP_DATE='2026-11-08';
+const APP_VERSION='1.5.0',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -885,8 +891,7 @@ function drawScanVin(){
     <div class="btnrow"><button class="btn" data-act="scanRecrop">Crop again</button>${retake||files('Retake photo')}</div>`;
   if(st==='cam')body=`<div class="camv" id="camv"><video playsinline muted autoplay></video><div class="camframe" id="camframe"></div><div class="camrot">Turn your phone upright (portrait) to take the photo</div></div>
     <p class="sub">Hold the phone upright and line up ${T.what} inside the box so the text is level and fills it. Tap the screen to focus.</p>
-    <button class="btn" data-act="camLens" id="camLens" hidden></button>
-    <button class="btn pri" data-act="camShot">Take photo</button><button class="btn" data-act="camCancel">Cancel</button>`;
+    <button class="btn pri camshot" data-act="camShot">Take photo</button><button class="btn" data-act="camCancel">Cancel</button>`;
   s.innerHTML=`<div class="shade" data-act="scanClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${T.title}"><div class="sheet-h"><button class="btn sm" data-act="scanClose">Close</button><h2>${T.title}</h2></div><div class="sheet-b">${body}${st==='pick'&&SC.msg?`<div class="sub">${esc(SC.msg)}</div>`:''}</div></div>`;
   if(st==='cam')camStart();
   const sh=$('#shot');if(sh&&SC.canvas){if(st==='crop')startCropView(sh);else sh.appendChild(showCanvas(true))}
@@ -905,23 +910,14 @@ function camLayout(){
 async function camStart(){
   const v=$('#camv video');if(!v)return;
   try{
-    let want='';try{want=localStorage.getItem('br.lens')||''}catch(e){}
     const vc=id=>({audio:false,video:Object.assign({width:{ideal:1920},height:{ideal:1080}},id?{deviceId:{exact:id}}:{facingMode:{ideal:'environment'}})});
     SC.stream=await navigator.mediaDevices.getUserMedia(vc(''));
-    /* iPhone Pro: the main lens cannot focus up close. The ultra wide lens can, so offer it as a close-up lens. */
+    /* iPhone Pro: the main lens cannot focus up close, the ultra wide lens can. Always use it when the phone has one. */
     try{
       const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput'&&d.label);
       const ultra=devs.find(d=>/ultra/i.test(d.label)&&/back|rear|environment/i.test(d.label))||devs.find(d=>/ultra/i.test(d.label));
-      const main=devs.find(d=>/back|rear/i.test(d.label)&&!/ultra|tele|dual|triple/i.test(d.label))||null;
-      SC.lens={ultra:ultra?ultra.deviceId:null,main:main?main.deviceId:null};
-      const cur=SC.stream.getVideoTracks()[0].getSettings().deviceId;
-      SC.lensOn=!!(ultra&&cur===ultra.deviceId);
-      if(ultra&&((want==='ultra')!==SC.lensOn)){
-        const id=want==='ultra'?ultra.deviceId:(main?main.deviceId:'');
-        if(want==='ultra'||id){camStopOnly();SC.stream=await navigator.mediaDevices.getUserMedia(vc(id));SC.lensOn=want==='ultra'}
-      }
-      const lb=$('#camLens');if(lb&&ultra){lb.hidden=false;lb.textContent=SC.lensOn?'Close-up lens is ON (tap for normal)':'Can\'t focus close? Use close-up lens'}
-    }catch(e){}
+      if(ultra&&SC.stream.getVideoTracks()[0].getSettings().deviceId!==ultra.deviceId){camStopOnly();SC.stream=await navigator.mediaDevices.getUserMedia(vc(ultra.deviceId))}
+    }catch(e){if(!SC.stream)SC.stream=await navigator.mediaDevices.getUserMedia(vc(''))}
     v.srcObject=SC.stream;v.setAttribute('playsinline','');await v.play();
     try{const t=SC.stream.getVideoTracks()[0],c=t.getCapabilities?t.getCapabilities():{};if(c.focusMode&&c.focusMode.includes('continuous'))await t.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
     camLayout();
@@ -930,7 +926,6 @@ async function camStart(){
   }
 }
 ACT.scanCam=()=>{SC.step='cam';SC.cands=[];SC.msg='';drawScan()};
-ACT.camLens=()=>{try{localStorage.setItem('br.lens',SC.lensOn?'main':'ultra')}catch(e){}camStop();drawScan()};
 ACT.camCancel=()=>{camStop();SC.step='pick';drawScan()};
 ACT.camShot=()=>{
   if(matchMedia('(orientation:landscape) and (max-height:500px) and (pointer:coarse)').matches)return;
@@ -1547,12 +1542,12 @@ document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.m==
 /* ---------- favicon / home screen icon ---------- */
 window.addEventListener('load',()=>{try{
   const S0=192,c=document.createElement('canvas');c.width=c.height=S0;const g=c.getContext('2d'),r=S0*.22;
-  const gr=g.createLinearGradient(0,0,S0,S0);gr.addColorStop(0,'#323a42');gr.addColorStop(1,'#1a1e22');
+  const gr=g.createLinearGradient(0,0,S0,S0);gr.addColorStop(0,'#0a4a9e');gr.addColorStop(1,'#002456');
   g.fillStyle=gr;g.beginPath();g.roundRect(0,0,S0,S0,r);g.fill();
   const hl=g.createLinearGradient(0,0,0,S0*.5);hl.addColorStop(0,'rgba(255,255,255,.14)');hl.addColorStop(1,'rgba(255,255,255,0)');
   g.fillStyle=hl;g.beginPath();g.roundRect(0,0,S0,S0*.5,[r,r,0,0]);g.fill();
-  g.save();g.translate(S0*.17,S0*.17);g.scale(S0*.66/32,S0*.66/32);g.strokeStyle='#e8591b';g.lineWidth=2.6;g.lineCap='round';g.lineJoin='round';
-  g.stroke(new Path2D('M21.5 4.5a6.5 6.5 0 0 0-6.2 8.4L5 23.2a2.9 2.9 0 0 0 4.100 4.100l10.300-10.300a6.500 6.500 0 0 0 8.400-6.200l-4.300 4.300-3.400-.9-.9-3.400z'));g.restore();
+  g.save();g.translate(S0*.17,S0*.17);g.scale(S0*.66/32,S0*.66/32);g.strokeStyle='#fff';g.fillStyle='#fff';g.lineWidth=2.6;g.lineCap='round';g.lineJoin='round';
+  g.fill(new Path2D('M21.5 4.5a6.5 6.5 0 0 0-6.2 8.4L5 23.2a2.9 2.9 0 0 0 4.100 4.100l10.300-10.300a6.500 6.500 0 0 0 8.400-6.200l-4.300 4.300-3.400-.9-.9-3.400z'));g.stroke(new Path2D('M21.5 4.5a6.5 6.5 0 0 0-6.2 8.4L5 23.2a2.9 2.9 0 0 0 4.100 4.100l10.300-10.300a6.500 6.500 0 0 0 8.400-6.200l-4.300 4.300-3.400-.9-.9-3.400z'));g.restore();
   const u=c.toDataURL('image/png');
   for(const rel of ['icon','apple-touch-icon']){const l=document.createElement('link');l.rel=rel;l.href=u;document.head.appendChild(l)}
 }catch(e){}});
