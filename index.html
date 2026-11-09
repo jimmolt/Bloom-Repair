@@ -413,7 +413,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.2.0',APP_DATE='2026-11-08';
+const APP_VERSION='1.2.1',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -474,7 +474,7 @@ function idbClear(){if(idb)try{os('readwrite').clear()}catch(e){}}
 /* ---------- images ---------- */
 async function fileToCanvas(file,maxSide){
   maxSide=maxSide||3000;let bmp=null,src,w,h;
-  try{if(window.createImageBitmap)bmp=await createImageBitmap(file)}catch(e){}
+  try{if(window.createImageBitmap){try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){bmp=await createImageBitmap(file)}}}catch(e){}
   if(bmp){src=bmp;w=bmp.width;h=bmp.height}
   else{src=await new Promise((res,rej)=>{const u=URL.createObjectURL(file),im=new Image();
     im.onload=()=>{URL.revokeObjectURL(u);res(im)};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('That photo could not be opened. On iPhone, set Settings > Camera > Formats to Most Compatible.'))};im.src=u});
@@ -601,8 +601,10 @@ const SCAN_HINT={vin:'Photograph the VIN on the windshield (lower driver side) o
  odo:'Photograph the odometer display with the ignition on. Fill the frame with the digits.',
  part:'Photograph the label on the part box that shows the part number. Barcodes are read too.'};
 
-function startScan(kind,cb){Object.assign(SC,{kind,cb,step:'pick',orig:null,canvas:null,region:null,busy:false,cands:[],msg:'',pct:0,note:'',raw:''});drawScan()}
-function closeScan(){const s=$('#scan');s.className='';s.innerHTML='';document.body.style.overflow=stack.length?'hidden':''}
+function startScan(kind,cb){try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('portrait').catch(()=>{})}catch(e){}
+  Object.assign(SC,{kind,cb,step:'pick',orig:null,canvas:null,region:null,busy:false,cands:[],msg:'',pct:0,note:'',raw:''});drawScan()}
+function closeScan(){try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock()}catch(e){}
+  const s=$('#scan');s.className='';s.innerHTML='';document.body.style.overflow=stack.length?'hidden':''}
 function drawScan(){
   if(SC.kind==='vin'||SC.kind==='odo')return drawScanVin();
   const s=$('#scan');s.className='on';document.body.style.overflow='hidden';
@@ -658,7 +660,9 @@ ACT.scanClear=()=>{SC.region=null;drawScan()};
 ACT.zoomIn=()=>{const V=SC.cv;if(V)V.zoomAt(V.W/2,V.H/2,1.6)};
 ACT.zoomOut=()=>{const V=SC.cv;if(V)V.zoomAt(V.W/2,V.H/2,1/1.6)};
 ACT.zoomFit=()=>{const V=SC.cv;if(V)V.fitView()};
-ACT.scanRot=b=>{if(!SC.canvas)return;SC.canvas=rotateCanvas(SC.canvas,+b.dataset.d);if(SC.step==='crop'||SC.kind==='part')SC.orig=SC.canvas;SC.region=null;drawScan()};
+ACT.scanRot=b=>{if(!SC.canvas)return;SC.canvas=rotateCanvas(SC.canvas,+b.dataset.d);if(SC.step==='crop'||SC.kind==='part')SC.orig=SC.canvas;SC.region=null;
+  if(SC.step==='crop'&&SC.cv){const sh=$('#shot');if(sh){sh.innerHTML='';startCropView(sh);return}}
+  drawScan()};
 ACT.scanRead=()=>runScan();
 ACT.scanPick=b=>{const c=SC.cands[+b.dataset.i];const cb=SC.cb;closeScan();if(cb)cb(c.value,c)};
 ACT.scanTyped=()=>{
@@ -855,7 +859,8 @@ function drawScanVin(){
   if(st==='crop')body=`<p class="sub"><b>Crop to the ${vin?'VIN':'digits'}.</b> Pinch or use + and - to zoom, drag the photo to move it, and drag the white corners to fit the box around ${T.what}.${T.turn}</p>
     <div class="cropv" id="shot"></div>
     <div class="btnrow tight"><button class="btn sm" data-act="zoomOut" aria-label="Zoom out">&minus;</button><button class="btn sm" data-act="zoomFit">Fit</button><button class="btn sm" data-act="zoomIn" aria-label="Zoom in">+</button><button class="btn sm" data-act="scanRot" data-d="-90" aria-label="Turn left">&#8634; Turn</button><button class="btn sm" data-act="scanRot" data-d="90" aria-label="Turn right">Turn &#8635;</button></div>
-    <div class="btnrow">${files('Retake photo')}<button class="btn pri" data-act="scanAccept">Accept crop</button></div>`;
+    <button class="btn pri" data-act="scanAccept">Accept crop</button>
+    <button class="linkbtn" data-act="scanRetake">Start over with a new photo</button>`;
   if(st==='read')body=`<div class="shot" id="shot"></div><div class="bar"><i style="width:${SC.pct}%"></i></div><div id="scanMsg" class="sub" role="status" aria-live="polite">${esc(SC.msg)}</div>`;
   if(st==='result')body=`<div class="shot" id="shot"></div>
     <div id="scanMsg" class="sub" role="status" aria-live="polite">${top?(top.partial?'Only part of the VIN was read. Fix it below.':top.score>=(vin?70:6)?'Read. Check it against the photo, then accept.':'Check it against the photo before accepting.'):esc(SC.msg)}</div>
@@ -873,6 +878,7 @@ ACT.scanAccept=()=>{
   else if(SC.region)SC.canvas=cropRegion(SC.orig,SC.region);else SC.canvas=SC.orig;
   SC.cv=null;SC.region=null;runScan();
 };
+ACT.scanRetake=()=>{SC.step='pick';SC.canvas=null;SC.orig=null;SC.cv=null;SC.cands=[];SC.msg='';drawScan()};
 ACT.scanRecrop=()=>{SC.canvas=SC.orig;SC.region=null;SC.cands=[];SC.step='crop';drawScan()};
 ACT.scanFill=b=>{const c=SC.cands[+b.dataset.i],el=$('#scanType');if(c&&el){el.value=c.value;const l=$('#vinLen');if(l&&SC.kind==='vin')l.textContent=c.value.length+'/17'}};
 
