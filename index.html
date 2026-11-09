@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#262b30">
+<meta name="theme-color" content="#ffffff">
 <title>Bloom Repair</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,8 +11,8 @@
 <style>
 /* Layout concept: one-hand shop tool. Graphite header, tab row, card lists, full-height sheets for jobs and scans. */
 :root{
-  --bg:#eceff1;--surface:#ffffff;--surface2:#e2e7ea;--ink:#1b2025;--muted:#59646d;--line:#cdd5da;
-  --head:#262b30;--head-ink:#f2f4f5;--brand:#c94a14;--brand-ink:#ffffff;--brand-soft:#fbe2d4;
+  --bg:#f4f6f8;--surface:#ffffff;--surface2:#e2e7ea;--ink:#1b2025;--muted:#59646d;--line:#cdd5da;
+  --head:#ffffff;--head-ink:#1b2025;--brand:#c94a14;--brand-ink:#ffffff;--brand-soft:#fbe2d4;
   --est:#8a5a00;--est-soft:#fbebc8;--open:#235ea6;--open-soft:#dbe8f7;--ready:#11706a;--ready-soft:#d2eeea;
   --inv:#6a47a6;--inv-soft:#e8e0f6;--paid:#1b7547;--paid-soft:#d6efe0;--bad:#b3261e;--bad-soft:#fbdedb;
   --watch:#8a5a00;--watch-soft:#fbebc8;
@@ -23,18 +23,13 @@
   --f-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
   color-scheme:light;
 }
-@media(prefers-color-scheme:dark){:root{
-  --bg:#121618;--surface:#1b2125;--surface2:#262d32;--ink:#e5e9ec;--muted:#98a4ad;--line:#2f383e;
-  --head:#0c0f10;--head-ink:#eef1f2;--brand:#ee7b46;--brand-ink:#1a0d06;--brand-soft:#3e2417;
-  --est:#f0be5a;--est-soft:#3a2d0e;--open:#7fb3f0;--open-soft:#16283f;--ready:#5fd0c6;--ready-soft:#10302d;
-  --inv:#bda3ee;--inv-soft:#2a2040;--paid:#6fd596;--paid-soft:#12301f;--bad:#ff9a8f;--bad-soft:#40181a;
-  --watch:#f0be5a;--watch-soft:#3a2d0e;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
 *{box-sizing:border-box}
 html,body{min-height:100%}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;overflow-x:clip;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 60px}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--head)}
+.cropv{position:relative;border-radius:10px;overflow:hidden;background:#000}
 button,input,select,textarea{font:inherit;color:inherit}
 input,select,textarea{font-size:16px}
 button{touch-action:manipulation}
@@ -49,14 +44,14 @@ h2{font-size:20px}h3{font-size:16px}
 a{color:var(--open)}
 
 /* header + nav */
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));
+.top{border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));
   padding-inline:max(16px,env(safe-area-inset-left,0px));background:var(--head);color:var(--head-ink)}
 .top .wrap{display:flex;align-items:center;gap:10px;padding-block:9px}
 .brand{display:flex;align-items:center;gap:9px;flex:none}
 .brand svg{width:30px;height:30px;color:var(--brand);flex:none}
 .brand b{font:800 22px/1 var(--f-display);letter-spacing:.01em}
 .brand span{display:block;font:600 10px/1 var(--f-body);letter-spacing:.28em;text-transform:uppercase;opacity:.8;margin-top:3px}
-.who{display:flex;align-items:center;gap:7px;border:1px solid #ffffff33;background:transparent;color:inherit;border-radius:999px;padding:4px 11px 4px 5px;cursor:pointer;min-height:36px}
+.who{display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:transparent;color:inherit;border-radius:999px;padding:4px 11px 4px 5px;cursor:pointer;min-height:36px}
 .nav{position:sticky;top:calc(env(safe-area-inset-top,0px) + 54px);z-index:15;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));
   padding-inline:max(16px,env(safe-area-inset-left,0px));background:var(--bg);border-bottom:1px solid var(--line)}
 .tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
@@ -205,6 +200,8 @@ body.tech .price{display:none!important}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
 .cand b.nm,.cand .nm{font-family:var(--f-body);letter-spacing:0}
+
+.btnrow.tight .btn{flex:1 1 0;min-width:0;padding-inline:6px}
 
 </style>
 </head>
@@ -416,7 +413,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.1.0',APP_DATE='2026-11-08';
+const APP_VERSION='1.2.0',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -658,6 +655,9 @@ function rotateCanvas(c,deg){
 }
 ACT.scanClose=()=>closeScan();
 ACT.scanClear=()=>{SC.region=null;drawScan()};
+ACT.zoomIn=()=>{const V=SC.cv;if(V)V.zoomAt(V.W/2,V.H/2,1.6)};
+ACT.zoomOut=()=>{const V=SC.cv;if(V)V.zoomAt(V.W/2,V.H/2,1/1.6)};
+ACT.zoomFit=()=>{const V=SC.cv;if(V)V.fitView()};
 ACT.scanRot=b=>{if(!SC.canvas)return;SC.canvas=rotateCanvas(SC.canvas,+b.dataset.d);if(SC.step==='crop'||SC.kind==='part')SC.orig=SC.canvas;SC.region=null;drawScan()};
 ACT.scanRead=()=>runScan();
 ACT.scanPick=b=>{const c=SC.cands[+b.dataset.i];const cb=SC.cb;closeScan();if(cb)cb(c.value,c)};
@@ -781,7 +781,9 @@ async function scanVin(region,asp){
   const rots=asp>1.6?[-90,90,0]:[0,-90,90];
   const BASE=[{mode:'plain',size:1200,trim:.04,psm:7},{mode:'sharp',size:1200,trim:.04,psm:11},{mode:'plain',size:800,trim:.04,psm:11},
     {mode:'sharp',size:800,trim:0,psm:11},{mode:'adaptive',size:1200,trim:.04,psm:11},{mode:'invert',size:1200,trim:.04,psm:7}];
-  const list=[];rots.forEach((rot,i)=>{for(const p of (i===0?BASE:BASE.slice(0,2)))list.push({...p,rot,psm:(!region&&p.psm===7)?11:p.psm})});
+  const EXTRA=[{mode:'plain',size:1800,trim:.04,psm:11},{mode:'sharp',size:600,trim:.04,psm:11},{mode:'plain',size:800,trim:0,psm:7},{mode:'adaptive',size:800,trim:.04,psm:11},
+    {mode:'sharp',size:1800,trim:.04,psm:7},{mode:'plain',size:1000,trim:.02,psm:11},{mode:'adaptive',size:1600,trim:0,psm:11},{mode:'invert',size:800,trim:0,psm:11}];
+  const list=[];rots.forEach((rot,i)=>{for(const p of (i===0?BASE.concat(EXTRA):BASE.slice(0,2)))list.push({...p,rot,psm:(!region&&p.psm===7)?11:p.psm})});
   const wl='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const votes=new Map();let partial='',texts=[];
   const vote=(vin,note)=>{const c=votes.get(vin);if(c)c.n++;else votes.set(vin,{n:1,note})};
@@ -796,11 +798,11 @@ async function scanVin(region,asp){
       for(const x of cs)for(const r of repairs(x.vin))vote(r.vin,'Fixed '+r.from+' to '+r.to+', check digit OK');
       const pf=partialFromText(txt);if(pf.length>partial.length)partial=pf;
     }
-    if([...votes.values()].some(v=>v.n>=2))break;
+    if([...votes.values()].some(v=>v.n>=3))break;
   }
-  /* a single-character repair can pass the check digit by luck (about 1 in 11), so only repairs seen more than once are trusted */
+  /* a single-character repair can pass the check digit by luck (about 1 in 11), so only repairs seen three or more times are offered, and they are always marked verify */
   const rep=[...votes.entries()].sort((a,b)=>b[1].n-a[1].n);
-  const out=rep.filter(([,v])=>v.n>=2).slice(0,3).map(([vin,v])=>({value:vin,label:vin,note:v.note,score:70}));
+  const out=rep.filter(([,v])=>v.n>=3).slice(0,3).map(([vin,v])=>({value:vin,label:vin,note:v.note+' (verify)',score:60}));
   if(!out.length){
     const all=texts.flatMap(t=>candidatesFromText(t)).filter(x=>x.vin);
     if(rep.length)out.push({value:rep[0][0],label:rep[0][0],note:'Unsure. Verify each character.',score:30});
@@ -850,9 +852,9 @@ function drawScanVin(){
   let body='';
   if(st==='pick')body=`<p class="sub">${T.pick}</p><div class="btnrow">${files('Take photo',1)}</div>
     <div class="sec"><label class="field"><span>Or type it</span><input id="scanType" ${T.inp} placeholder="${T.ph}"></label><button class="btn" data-act="scanTyped">${T.use}</button></div>`;
-  if(st==='crop')body=`<p class="sub"><b>Crop to the ${vin?'VIN':'digits'}.</b> Drag a box around just ${T.what}, then tap Accept.${T.turn}</p>
-    <div class="shot" id="shot"></div>
-    <div class="btnrow"><button class="btn" data-act="scanRot" data-d="-90">Turn left</button><button class="btn" data-act="scanRot" data-d="90">Turn right</button><button class="btn" data-act="scanClear">Reset box</button></div>
+  if(st==='crop')body=`<p class="sub"><b>Crop to the ${vin?'VIN':'digits'}.</b> Pinch or use + and - to zoom, drag the photo to move it, and drag the white corners to fit the box around ${T.what}.${T.turn}</p>
+    <div class="cropv" id="shot"></div>
+    <div class="btnrow tight"><button class="btn sm" data-act="zoomOut" aria-label="Zoom out">&minus;</button><button class="btn sm" data-act="zoomFit">Fit</button><button class="btn sm" data-act="zoomIn" aria-label="Zoom in">+</button><button class="btn sm" data-act="scanRot" data-d="-90" aria-label="Turn left">&#8634; Turn</button><button class="btn sm" data-act="scanRot" data-d="90" aria-label="Turn right">Turn &#8635;</button></div>
     <div class="btnrow">${files('Retake photo')}<button class="btn pri" data-act="scanAccept">Accept crop</button></div>`;
   if(st==='read')body=`<div class="shot" id="shot"></div><div class="bar"><i style="width:${SC.pct}%"></i></div><div id="scanMsg" class="sub" role="status" aria-live="polite">${esc(SC.msg)}</div>`;
   if(st==='result')body=`<div class="shot" id="shot"></div>
@@ -862,15 +864,61 @@ function drawScanVin(){
     <button class="btn pri" data-act="scanTyped">${T.acc}</button>
     <div class="btnrow"><button class="btn" data-act="scanRecrop">Crop again</button>${files('Retake photo')}</div>`;
   s.innerHTML=`<div class="shade" data-act="scanClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${T.title}"><div class="sheet-h"><button class="btn sm" data-act="scanClose">Close</button><h2>${T.title}</h2></div><div class="sheet-b">${body}${st==='pick'&&SC.msg?`<div class="sub">${esc(SC.msg)}</div>`:''}</div></div>`;
-  const sh=$('#shot');if(sh&&SC.canvas)sh.appendChild(showCanvas(st!=='crop'));
+  const sh=$('#shot');if(sh&&SC.canvas){if(st==='crop')startCropView(sh);else sh.appendChild(showCanvas(true))}
   for(const id of ['scanFile','scanFile2']){const f=$('#'+id);if(f)f.onchange=async e=>{const file=e.target.files[0];if(file)await loadScanFile(file)}}
 }
 ACT.scanAccept=()=>{
-  if(SC.region)SC.canvas=cropRegion(SC.orig,SC.region);else SC.canvas=SC.orig;
-  SC.region=null;runScan();
+  const V=SC.cv;
+  if(V&&SC.step==='crop'){const b=V.box;SC.canvas=cropRegion(SC.orig,{x:b.x0/V.iw,y:b.y0/V.ih,w:(b.x1-b.x0)/V.iw,h:(b.y1-b.y0)/V.ih})}
+  else if(SC.region)SC.canvas=cropRegion(SC.orig,SC.region);else SC.canvas=SC.orig;
+  SC.cv=null;SC.region=null;runScan();
 };
 ACT.scanRecrop=()=>{SC.canvas=SC.orig;SC.region=null;SC.cands=[];SC.step='crop';drawScan()};
 ACT.scanFill=b=>{const c=SC.cands[+b.dataset.i],el=$('#scanType');if(c&&el){el.value=c.value;const l=$('#vinLen');if(l&&SC.kind==='vin')l.textContent=c.value.length+'/17'}};
+
+/* ----- crop viewer: pinch/wheel zoom, drag to pan, white box with four draggable corners (like the iPhone crop) ----- */
+function startCropView(host){
+  const src=SC.canvas,dpr=window.devicePixelRatio||1,W=host.clientWidth||340,H=Math.round(Math.max(260,Math.min(window.innerHeight*.44,460)));
+  const cv=document.createElement('canvas');cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  cv.style.cssText='width:'+W+'px;height:'+H+'px;display:block;touch-action:none;background:#000';
+  host.appendChild(cv);const g=cv.getContext('2d'),iw=src.width,ih=src.height,fit=Math.min(W/iw,H/ih);
+  const V={W,H,iw,ih,fit,s:fit,ox:(W-iw*fit)/2,oy:(H-ih*fit)/2,box:{x0:0,y0:0,x1:iw,y1:ih}};
+  const maxS=()=>Math.max(6,fit*14),clampS=s=>Math.min(maxS(),Math.max(fit*.8,s));
+  const sx=x=>V.ox+x*V.s,sy=y=>V.oy+y*V.s,ix=px=>(px-V.ox)/V.s,iy=py=>(py-V.oy)/V.s;
+  const corners=()=>{const b=V.box;return[[sx(b.x0),sy(b.y0)],[sx(b.x1),sy(b.y0)],[sx(b.x1),sy(b.y1)],[sx(b.x0),sy(b.y1)]]};
+  function draw(){
+    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#000';g.fillRect(0,0,W,H);g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
+    g.drawImage(src,V.ox,V.oy,iw*V.s,ih*V.s);
+    const [[x0,y0],[x1,,],[,y1]]=[corners()[0],corners()[1],corners()[2]];
+    const L=Math.max(0,Math.min(W,x0)),R=Math.max(0,Math.min(W,x1)),T=Math.max(0,Math.min(H,y0)),B=Math.max(0,Math.min(H,y1));
+    g.fillStyle='rgba(0,0,0,.55)';g.fillRect(0,0,W,T);g.fillRect(0,B,W,H-B);g.fillRect(0,T,L,B-T);g.fillRect(R,T,W-R,B-T);
+    g.strokeStyle='rgba(255,255,255,.4)';g.lineWidth=1;g.beginPath();
+    for(let i=1;i<3;i++){g.moveTo(x0+(x1-x0)*i/3,y0);g.lineTo(x0+(x1-x0)*i/3,y1);g.moveTo(x0,y0+(y1-y0)*i/3);g.lineTo(x1,y0+(y1-y0)*i/3)}g.stroke();
+    g.strokeStyle='#fff';g.lineWidth=1.5;g.strokeRect(x0,y0,x1-x0,y1-y0);
+    const k=Math.min(24,(x1-x0)/2.5,(y1-y0)/2.5);g.lineWidth=5;g.lineCap='square';g.beginPath();
+    g.moveTo(x0,y0+k);g.lineTo(x0,y0);g.lineTo(x0+k,y0);g.moveTo(x1-k,y0);g.lineTo(x1,y0);g.lineTo(x1,y0+k);
+    g.moveTo(x1,y1-k);g.lineTo(x1,y1);g.lineTo(x1-k,y1);g.moveTo(x0+k,y1);g.lineTo(x0,y1);g.lineTo(x0,y1-k);g.stroke();
+  }
+  V.zoomAt=(px,py,f)=>{const s=clampS(V.s*f),ax=ix(px),ay=iy(py);V.s=s;V.ox=px-ax*s;V.oy=py-ay*s;draw()};
+  V.fitView=()=>{V.s=fit;V.ox=(W-iw*fit)/2;V.oy=(H-ih*fit)/2;draw()};
+  const pts=new Map();let mode='',cIdx=-1,last=null,pin=null;
+  const loc=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height]};
+  cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const p=loc(e);pts.set(e.pointerId,p);
+    if(pts.size===2){const [a,b]=[...pts.values()],mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;pin={d:Math.hypot(a[0]-b[0],a[1]-b[1])||1,s:V.s,ax:ix(mx),ay:iy(my)};mode='pinch';return}
+    const cs=corners();cIdx=-1;let best=34;cs.forEach((c,i)=>{const d=Math.hypot(c[0]-p[0],c[1]-p[1]);if(d<best){best=d;cIdx=i}});
+    if(cIdx>=0)mode='corner';else{mode='pan';last=p}};
+  cv.onpointermove=e=>{if(!pts.has(e.pointerId))return;const p=loc(e);pts.set(e.pointerId,p);
+    if(mode==='pinch'&&pts.size>=2){const [a,b]=[...pts.values()],mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,d=Math.hypot(a[0]-b[0],a[1]-b[1])||1;
+      V.s=clampS(pin.s*d/pin.d);V.ox=mx-pin.ax*V.s;V.oy=my-pin.ay*V.s;draw();return}
+    if(mode==='corner'){const b=V.box,m=18/V.s,x=Math.min(iw,Math.max(0,ix(p[0]))),y=Math.min(ih,Math.max(0,iy(p[1])));
+      if(cIdx===0||cIdx===3)b.x0=Math.min(x,b.x1-m);else b.x1=Math.max(x,b.x0+m);
+      if(cIdx===0||cIdx===1)b.y0=Math.min(y,b.y1-m);else b.y1=Math.max(y,b.y0+m);draw();return}
+    if(mode==='pan'&&last){V.ox+=p[0]-last[0];V.oy+=p[1]-last[1];last=p;draw()}};
+  const up=e=>{pts.delete(e.pointerId);if(pts.size<2&&mode==='pinch'){mode='';const r=[...pts.values()][0];if(r){mode='pan';last=r}}else if(!pts.size)mode=''};
+  cv.onpointerup=up;cv.onpointercancel=up;
+  cv.onwheel=e=>{e.preventDefault();const p=loc(e);V.zoomAt(p[0],p[1],Math.exp(-e.deltaY*.0015))};
+  SC.cv=V;draw();
+}
 
 /* ---------- small form helpers ---------- */
 const fld=(label,inner,cls)=>`<label class="field ${cls||''}"><span>${label}</span>${inner}</label>`;
