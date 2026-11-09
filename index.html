@@ -215,6 +215,23 @@ body.tech .price{display:none!important}
 .top .who{border-color:rgba(255,255,255,.5)}
 .btn.camshot{min-height:68px;font-size:21px;border-radius:14px;letter-spacing:.01em}
 
+/* hours rows and scroll wheel (same idea as the Molt sheets app) */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
+.modal .box{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:420px}.modal .box p{font-size:20px;font-weight:700;margin:0 0 6px}
+.erow{display:flex;gap:6px;align-items:center;margin:6px 0}
+.erow .dwrap{position:relative;flex:0 0 74px;width:74px;height:44px;overflow:hidden}
+.erow .dwrap::before{content:attr(data-txt);display:flex;align-items:center;justify-content:center;height:100%;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:16px}
+.erow .dwrap input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;-webkit-appearance:none;appearance:none}
+.erow select{flex:1 1 0;min-width:0;min-height:44px;padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.erow>.btn{flex:0 0 40px;padding:0;min-height:44px}
+.hrbtn{flex:0 0 72px;display:flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:18px;font-weight:700;cursor:pointer;padding:0}.hrbtn.empty{color:#8a949c;font-weight:400}
+.total{margin-top:8px;font-weight:700}
+.hw{position:relative;height:220px;margin:10px 0}
+.hw-list{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;padding:88px 0;box-sizing:border-box;scrollbar-width:none;overscroll-behavior:contain;outline:none;-webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+.hw-list::-webkit-scrollbar{display:none}
+.hw-row{height:44px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;font-size:24px;font-weight:600;color:#9ca3af;cursor:pointer}.hw-row.on{color:var(--brand);font-size:30px;font-weight:800}
+.hw-band{position:absolute;left:0;right:0;top:88px;height:44px;border-top:2px solid #b7c6dd;border-bottom:2px solid #b7c6dd;background:rgba(0,52,120,.06);pointer-events:none;border-radius:6px}
+
 </style>
 </head>
 <body>
@@ -434,7 +451,7 @@ function parseChecklist(text){
 }
 
 /* ---------- state, storage, shared helpers ---------- */
-const APP_VERSION='1.6.2',APP_DATE='2026-11-08';
+const APP_VERSION='1.7.0',APP_DATE='2026-11-08';
 const KEY='bloomrepair.v1',USERKEY='bloomrepair.user';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1005,11 +1022,31 @@ const pruneBlankCusts=()=>{S.customers=S.customers.filter(c=>[c.name,c.phone,c.e
 function inp(m,f,val,o){o=o||{};
   return `<input type="${o.type||'text'}" data-m="${m}" data-f="${f}" value="${esc(val)}"${o.ph?` placeholder="${esc(o.ph)}"`:''}${o.live?' data-live="1"':''}${o.redraw?' data-redraw="1"':''}${o.fmt?` data-fmt="${o.fmt}"`:''}${o.mode?` inputmode="${o.mode}"`:''}${o.cap?' autocapitalize="characters"':''}${o.max?` maxlength="${o.max}"`:''} autocomplete="off">`}
 const area=(m,f,val,ph)=>`<textarea data-m="${m}" data-f="${f}" placeholder="${esc(ph||'')}">${esc(val)}</textarea>`;
-function hoursSel(m,val){
-  const opts=[];for(let q=1;q<=64;q++)opts.push(q/4);
-  const cur=String(val==null?'':val).trim(),has=cur&&opts.some(o=>String(o)===cur||o===num(cur));
-  const lbl=h=>{const w=Math.floor(h),f=h-w,fr={0:'',0.25:'1/4',0.5:'1/2',0.75:'3/4'}[f];return (w?w+(fr?' ':''):'')+(fr||'')+(h<=1?' hr':' hrs')};
-  return `<select data-m="${m}" data-f="hours" data-live="1" aria-label="Hours">${cur?'':'<option value="" selected>Select</option>'}${cur&&!has?`<option value="${esc(cur)}" selected>${esc(cur)} hrs</option>`:''}${opts.map(o=>`<option value="${o}" ${cur&&num(cur)===o?'selected':''}>${lbl(o)}</option>`).join('')}</select>`;
+/* hours entry works like the Molt sheets app: + Add hours adds a row and opens a scroll wheel in quarter hours */
+const QF={0.25:'\u00bc',0.5:'\u00bd',0.75:'\u00be'};
+function hrsLabel(v){
+  if(v===''||v==null||isNaN(Number(v)))return 'Hours';
+  const n=Number(v),w=Math.floor(n+1e-9),f=Math.round((n-w)*100)/100;
+  if(f===0)return String(w);if(QF[f])return (w?w+' ':'')+QF[f];return String(Math.round(n*100)/100);
+}
+const shortDate=d=>{const x=new Date(String(d||'')+'T12:00:00');return isNaN(x)?'Date':x.toLocaleDateString('en-US',{month:'short',day:'numeric'})};
+function openHoursWheel(cur,cb){
+  const vals=Array.from({length:24*4+1},(_,i)=>i/4),H=44;
+  let idx=cur===''||cur==null||isNaN(Number(cur))?4:Math.max(0,Math.min(vals.length-1,Math.round(Number(cur)*4)));
+  const o=document.createElement('div');o.className='modal';
+  o.innerHTML=`<div class="box" style="max-width:320px"><p style="text-align:center;margin-bottom:4px">Hours worked</p><div class="sub" style="text-align:center">Scroll to the time, then tap Done</div>
+   <div class="hw"><div class="hw-band"></div><div class="hw-list" tabindex="0">${vals.map((v,i)=>`<div class="hw-row" data-i="${i}">${esc(hrsLabel(v))}</div>`).join('')}</div></div>
+   <div class="btnrow"><button class="btn pri" id="hw-ok">Done</button><button class="btn" id="hw-x">Cancel</button></div></div>`;
+  document.body.appendChild(o);
+  const list=o.querySelector('.hw-list'),rows=[...o.querySelectorAll('.hw-row')];
+  const mark=()=>rows.forEach((r,i)=>r.classList.toggle('on',i===idx));
+  list.scrollTop=idx*H;mark();let raf=0;
+  list.addEventListener('scroll',()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{const i=Math.max(0,Math.min(vals.length-1,Math.round(list.scrollTop/H)));if(i!==idx){idx=i;mark()}})});
+  rows.forEach((r,i)=>r.onclick=()=>list.scrollTo({top:i*H,behavior:'smooth'}));
+  o.querySelector('#hw-ok').onclick=()=>{o.remove();cb(vals[idx])};
+  o.querySelector('#hw-x').onclick=()=>o.remove();
+  o.onclick=e=>{if(e.target===o)o.remove()};
+  list.focus({preventScroll:true});
 }
 const nowStamp=()=>{const d=new Date();return today()+'T'+pad(d.getHours())+':'+pad(d.getMinutes())};
 const ICON={cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
@@ -1210,9 +1247,10 @@ function jobSheet(id){
   ${fld('Customer concern',area('job:'+j.id,'concern',j.concern,'What the customer says is wrong'))}
   ${isTech()?'':`<div class="sec"><h3>Assign to</h3><div class="chips">${techs().map(s=>`<button class="chip" aria-pressed="${j.assigned.includes(s.id)}" data-act="toggleAssign" data-id="${j.id}" data-s="${s.id}">${esc(s.name)}</button>`).join('')}</div></div>`}
 
-  ${j.fresh?'':`  <div class="card sec"><h3>Labor <button class="btn sm" data-act="addLabor" data-id="${j.id}">+ Hours</button></h3>
-   ${j.labor.length?j.labor.map(l=>`<div class="line"><div class="l1">${l.desc?esc(l.desc):'Labor'}</div><button class="btn sm bad" data-act="delLabor" data-id="${j.id}" data-l="${l.id}" aria-label="Remove labor line">Remove</button>
-    <div class="ctl">${fld('Hours',hoursSel('lab:'+j.id+':'+l.id,l.hours))}${fld('Rate',inp('lab:'+j.id+':'+l.id,'rate',l.rate,{mode:'decimal',live:1}),'price')}<div class="price num">${money(num(l.hours)*num(l.rate))}</div></div></div>`).join(''):'<div class="sub">No hours yet. Tap + Hours.</div>'}</div>
+  ${j.fresh?'':`  <div class="card sec"><h3>Hours</h3>
+   ${j.labor.map(l=>`<div class="erow"><span class="dwrap" data-txt="${esc(shortDate(l.date))}"><input type="date" value="${esc(l.date||'')}" data-m="lab:${j.id}:${l.id}" data-f="date" aria-label="Date"></span><button class="hrbtn${l.hours===''||l.hours==null?' empty':''}" data-act="hoursWheel" data-id="${j.id}" data-l="${l.id}" aria-label="Hours">${hrsLabel(l.hours)}</button><select data-m="lab:${j.id}:${l.id}" data-f="by" aria-label="Employee"><option value=""${l.by?'':' selected'}>Who</option>${crew().map(s=>`<option value="${s.id}"${s.id===l.by?' selected':''}>${esc(s.name)}</option>`).join('')}</select><button class="btn sm bad" data-act="delLabor" data-id="${j.id}" data-l="${l.id}" aria-label="Remove hours">&#10005;</button></div>${l.desc?`<div class="sub">${esc(l.desc)}</div>`:''}`).join('')}
+   <button class="btn" data-act="addLabor" data-id="${j.id}">+ Add hours</button>
+   <div class="total num">Total: ${totalsOf(j).hours.toFixed(2)} hrs</div></div>
 
   <div class="card sec"><h3>Parts <button class="btn sm pri" data-act="addPart" data-id="${j.id}">+ Part (scan)</button></h3>
    ${j.parts.length?j.parts.map(l=>`<div class="line"><div class="l1">${l.number?`<span class="vin">${esc(l.number)}</span> `:''}${inp('prt:'+j.id+':'+l.id,'desc',l.desc,{ph:'Description'})}</div><button class="btn sm bad" data-act="delPart" data-id="${j.id}" data-l="${l.id}" aria-label="Remove part">Remove</button>
@@ -1253,7 +1291,8 @@ ACT.setStatus=b=>{
   persistNow();refresh();
 };
 ACT.toggleAssign=b=>{const j=job(b.dataset.id),s=b.dataset.s,i=j.assigned.indexOf(s);if(i<0)j.assigned.push(s);else j.assigned.splice(i,1);persistNow();refresh()};
-ACT.addLabor=b=>{const j=job(b.dataset.id),m=me();j.labor.push({id:uid(),desc:'',hours:'',rate:String(S.settings.laborRate),by:m?m.id:'',date:today()});persistNow();refresh()};
+ACT.addLabor=b=>{const j=job(b.dataset.id),m=me(),l={id:uid(),desc:'',hours:'',rate:String(S.settings.laborRate),by:m&&m.role!=='office'?m.id:'',date:today()};j.labor.push(l);persistNow();refresh();openHoursWheel('',v=>{l.hours=String(v);persistNow();refresh()})};
+ACT.hoursWheel=b=>{const j=job(b.dataset.id),l=j&&j.labor.find(x=>x.id===b.dataset.l);if(!l)return;openHoursWheel(l.hours,v=>{l.hours=String(v);persistNow();refresh()})};
 ACT.delLabor=b=>{const j=job(b.dataset.id);j.labor=j.labor.filter(l=>l.id!==b.dataset.l);persistNow();refresh()};
 ACT.delPart=b=>{const j=job(b.dataset.id);j.parts=j.parts.filter(l=>l.id!==b.dataset.l);persistNow();refresh()};
 ACT.delJob=b=>{if(!confirm('Delete this job and its photos? This cannot be undone.'))return;const id=b.dataset.id;
@@ -1341,6 +1380,7 @@ function histSheet(jobId){
      ${x.notes?`<div class="note">${esc(x.notes)}</div>`:''}
      ${flags?`<ul style="margin:0;padding-left:18px">${flags}</ul>`:''}</div>`}).join(''):'<div class="empty">No earlier jobs on this vehicle.</div>'}</div>`;
 }
+document.addEventListener('input',e=>{const t=e.target;if(t.type==='date'&&t.parentNode&&t.parentNode.classList.contains('dwrap'))t.parentNode.dataset.txt=shortDate(t.value)});
 
 /* ---------- sign in ---------- */
 function signIn(){
